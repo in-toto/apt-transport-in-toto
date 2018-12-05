@@ -110,6 +110,7 @@ import Queue
 import logging
 import logging.handlers
 import subprocess32 as subprocess
+import requests
 
 # TODO: Should we setup a SysLogHandler and write to /var/log/apt/intoto ?
 LOG_FILE = "/tmp/intoto.log"
@@ -494,7 +495,20 @@ def handle(message_data):
     # Optionally send STATUS or LOG messages to apt, while doing all of above
     # To send these messages to apt use
     # `write_one(serialize_message(<msg dict in above format>), sys.stdout)`
-    pass
+    for pkg in global_info["packages"]:
+      for rebuilder in global_info["config"]["Rebuilders"]:
+        logger.debug("Using rebuilder: {}".format(rebuilder))
+        url = "{rebuilder}sources/{name}/{version}/metadata".format(rebuilder=rebuilder, **pkg)
+        logger.debug("Requesting metadata: {}".format(url))
+        r = requests.get(url)
+        if r.status_code == 200:
+          for key, value in r.json()["signed"]["products"].items():
+            if key == pkg["filename"] and value["sha256"] == pkg["checksum"]:
+              logger.debug("Verified {} with checksum {}".format(key, value["sha256"]))
+            else:
+              logger.debug("Couldn't verify {} with checksum {}, has {}".format(key, value["sha256"], checksum))
+        else:
+          logger.debug("There is no recorded metadata on rebuilder {}".format(rebuilder))
 
   # All good, we can relay the message
   return True
