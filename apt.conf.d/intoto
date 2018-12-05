@@ -1,0 +1,4 @@
+APT::Intoto::Rebuilders {
+    "http://158.39.77.214/";
+    "https://reproducible-builds.engineering.nyu.edu/";
+};
