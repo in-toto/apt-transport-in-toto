@@ -436,10 +436,26 @@ def handle(message_data):
     logger.debug("Intoto session configuration: {}".format(global_info))
 
   elif message_data["code"] == URI_ACQUIRE:
-    # TODO: Should cache URIs that apt wants us to download? We could take
-    # a look at the `Index-File` header field to later decide if we try
-    # to fetch link metadata for this file.
-    pass
+    if message_data["fields"][2][0] == "Index-File":
+        return True
+      #{'info': 'URI Acquire', 'fields': [('URI', 'intoto://deb.debian.org/debian/pool/main/m/mosh/mosh_1.2.6-1+b2_amd64.deb'), ('Filename', '/var/cache/apt/archives/partial/mosh_1.2.6-1+b2_amd64.deb'), ('Expected-SHA256', '9438e579f102c5d1c8a916e4950d444e03cca61c9e46fa80b6ab78f208e8a2af'), ('Expected-MD5Sum', '42be0ef350f3f500fe515c780250ca2c'), ('Expected-Checksum-FileSize', '203334')], 'code': 600}
+    package = {
+      "filename": "",
+      "path": "",
+      "name": "",
+      "version": "",
+      "checksum": "",
+      "arch": ""
+    }
+    package["path"] = message_data["fields"][1][1]
+    package["checksum"] = message_data["fields"][2][1]
+    package["filename"] = package["path"].split("/")[-1]
+    package["name"], package["version"], _arch = package["filename"].split("_")
+    # Remove .deb at the end of the arch
+    package["arch"] = _arch.split(".")[0]
+
+    global_info["packages"].append(package)
+    logger.debug("Saved package: {}".format(package))
 
   elif message_data["code"] == URI_DONE:
     # The http transport has downloaded the package requested by apt and
