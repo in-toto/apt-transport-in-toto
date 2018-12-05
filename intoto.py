@@ -404,8 +404,12 @@ def read_to_queue(stream, queue):
 # Dict to keep some global state, i.e. we need information from earlier
 # messages (e.g. CONFIGURATION) when doing in-toto verification upon URI_DONE.
 global_info = {
-  "config": {},
+  "config": {
+    "Rebuilders": []
+  },
+  "packages": []
 }
+
 
 def handle(message_data):
   """Handle passed message to parse configuration and perform in-toto
@@ -424,14 +428,12 @@ def handle(message_data):
   logger.debug("Handling message: {}".format(message_data))
   # Parse out configuration data
   if message_data["code"] == CONFIGURATION:
-    # TODO: Call function to parse in-toto related config items
-    # (reproducer URL, layout path, gpg keyid(s) or pem file path(s)), and
-    # add them to our `global_info` dict, the function could look something
-    # like:
-    # for name, value in message_data["fields"].iteritems():
-    #   if name == "Config-Item" and value.startswith("APT::intoto::"):
-    #     global_info["config"][value_parts[0]] = value_parts[1]
-    pass
+    for name, value in message_data["fields"]:
+      if name == "Config-Item" and value.startswith("APT::Intoto"):
+        value_parts = value.split("::")
+        global_info["config"][value_parts[2]].append(value_parts[3][1:])
+
+    logger.debug("Intoto session configuration: {}".format(global_info))
 
   elif message_data["code"] == URI_ACQUIRE:
     # TODO: Should cache URIs that apt wants us to download? We could take
