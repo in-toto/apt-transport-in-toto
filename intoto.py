@@ -114,7 +114,7 @@ import subprocess32 as subprocess
 # TODO: Should we setup a SysLogHandler and write to /var/log/apt/intoto ?
 LOG_FILE = "/tmp/intoto.log"
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.handlers.RotatingFileHandler(LOG_FILE))
 
 APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
@@ -421,6 +421,7 @@ def handle(message_data):
   be relayed or not.
 
   """
+  logger.debug("Handling message: {}".format(message_data))
   # Parse out configuration data
   if message_data["code"] == CONFIGURATION:
     # TODO: Call function to parse in-toto related config items
@@ -515,13 +516,14 @@ def loop():
   # queue, and relay them to the corresponding streams, injecting in-toto
   # verification upon reception of a particular message.
   while True:
-    for queue, out in [
-        (apt_queue, http_proc.stdin),
-        (http_queue, sys.stdout)]:
+    for name, queue, out in [
+        ("apt", apt_queue, http_proc.stdin),
+        ("http", http_queue, sys.stdout)]:
 
       try:
         message = queue.get_nowait()
         message_data = deserialize_one(message)
+        logger.debug("{} sent us a message".format(name))
 
       except Queue.Empty:
         continue
@@ -536,6 +538,7 @@ def loop():
         should_relay = handle(message_data)
 
       if should_relay:
+        logger.debug("Relayed message: {}".format(message))
         write_one(message, out)
 
     # Exit when both threads have terminated (on EOF or INTERRUPTED)
