@@ -406,7 +406,10 @@ def read_to_queue(stream, queue):
 # messages (e.g. CONFIGURATION) when doing in-toto verification upon URI_DONE.
 global_info = {
   "config": {
-    "Rebuilders": []
+    "Rebuilders": [],
+    "GPGHomedir": "",
+    "Layout": "",
+    "Keyid": ""
   },
   "packages": []
 }
@@ -432,31 +435,34 @@ def handle(message_data):
     for name, value in message_data["fields"]:
       if name == "Config-Item" and value.startswith("APT::Intoto"):
         value_parts = value.split("::")
-        global_info["config"][value_parts[2]].append(value_parts[3][1:])
+        if isinstance(global_info["config"][value_parts[2]], list):
+          global_info["config"][value_parts[2]].append(value_parts[3][1:])
+        else:
+          global_info["config"][value_parts[2]] = value_parts[3][1:]
 
     logger.debug("Intoto session configuration: {}".format(global_info))
 
-  elif message_data["code"] == URI_ACQUIRE:
-    if message_data["fields"][2][0] == "Index-File":
-        return True
-      #{'info': 'URI Acquire', 'fields': [('URI', 'intoto://deb.debian.org/debian/pool/main/m/mosh/mosh_1.2.6-1+b2_amd64.deb'), ('Filename', '/var/cache/apt/archives/partial/mosh_1.2.6-1+b2_amd64.deb'), ('Expected-SHA256', '9438e579f102c5d1c8a916e4950d444e03cca61c9e46fa80b6ab78f208e8a2af'), ('Expected-MD5Sum', '42be0ef350f3f500fe515c780250ca2c'), ('Expected-Checksum-FileSize', '203334')], 'code': 600}
-    package = {
-      "filename": "",
-      "path": "",
-      "name": "",
-      "version": "",
-      "checksum": "",
-      "arch": ""
-    }
-    package["path"] = message_data["fields"][1][1]
-    package["checksum"] = message_data["fields"][2][1]
-    package["filename"] = package["path"].split("/")[-1]
-    package["name"], package["version"], _arch = package["filename"].split("_")
-    # Remove .deb at the end of the arch
-    package["arch"] = _arch.split(".")[0]
+  # elif message_data["code"] == URI_ACQUIRE:
+  #   if message_data["fields"][2][0] == "Index-File":
+  #       return True
+  #     #{'info': 'URI Acquire', 'fields': [('URI', 'intoto://deb.debian.org/debian/pool/main/m/mosh/mosh_1.2.6-1+b2_amd64.deb'), ('Filename', '/var/cache/apt/archives/partial/mosh_1.2.6-1+b2_amd64.deb'), ('Expected-SHA256', '9438e579f102c5d1c8a916e4950d444e03cca61c9e46fa80b6ab78f208e8a2af'), ('Expected-MD5Sum', '42be0ef350f3f500fe515c780250ca2c'), ('Expected-Checksum-FileSize', '203334')], 'code': 600}
+  #   package = {
+  #     "filename": "",
+  #     "path": "",
+  #     "name": "",
+  #     "version": "",
+  #     "checksum": "",
+  #     "arch": ""
+  #   }
+  #   package["path"] = message_data["fields"][1][1]
+  #   package["checksum"] = message_data["fields"][2][1]
+  #   package["filename"] = package["path"].split("/")[-1]
+  #   package["name"], package["version"], _arch = package["filename"].split("_")
+  #   # Remove .deb at the end of the arch
+  #   package["arch"] = _arch.split(".")[0]
 
-    global_info["packages"].append(package)
-    logger.debug("Saved package: {}".format(package))
+  #   global_info["packages"].append(package)
+  #   logger.debug("Saved package: {}".format(package))
 
   elif message_data["code"] == URI_DONE:
     # The http transport has downloaded the package requested by apt and
