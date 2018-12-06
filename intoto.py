@@ -519,6 +519,7 @@ def loop():
         (apt_queue, http_proc.stdin),
         (http_queue, sys.stdout)]:
 
+      should_relay = True
       try:
         message = queue.get_nowait()
         message_data = deserialize_one(message)
