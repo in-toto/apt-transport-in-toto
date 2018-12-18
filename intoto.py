@@ -350,8 +350,7 @@ def serialize_one(message_data):
 
   # Add message header fields and values (must be list of tuples)
   for field_name, field_value in message_data.get("fields", []):
-    for val in field_value:
-      message_str += "{}: {}\n".format(field_name, val)
+    message_str += "{}: {}\n".format(field_name, field_value)
 
   # Blank line to mark end of message
   message_str += "\n"
