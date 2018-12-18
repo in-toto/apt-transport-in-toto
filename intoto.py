@@ -143,7 +143,7 @@ APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 # Upon reception we set INTERRUPTED to true, which may be used to gracefully
 # terminate.
 INTERRUPTED = False
-def signal_handler(signal, frame):
+def signal_handler(*junk):
   # Set global INTERRUPTED flag telling worker threads to terminate
   logger.debug("Received SIGINT, setting global INTERRUPTED true")
   global INTERRUPTED
