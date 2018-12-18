@@ -402,6 +402,17 @@ def write_one(message_str, stream):
   stream.flush()
 
 
+def notify_apt(code, message_text, uri):
+  write_one(serialize_one({
+      "code": code,
+      "info": MESSAGE_TYPE[code]["info"],
+      "fields": [
+        ("Message", message_text),
+        ("URI", uri)
+      ]
+    }), sys.stdout)
+
+
 def read_to_queue(stream, queue):
   """Loop to read messages one at a time from the passed stream until EOF, i.e.
   the returned message is None, and write to the passed queue.
