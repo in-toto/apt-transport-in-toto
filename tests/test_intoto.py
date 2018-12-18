@@ -29,11 +29,11 @@ import unittest
 import subprocess32 as subprocess
 import signal
 import intoto
+import logging
 
-
-
-TEST_DATA_PATH = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "test_data")
+LOG_LEVEL = logging.INFO
+TEST_PATH = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_PATH = os.path.join(TEST_PATH, "data")
 
 LAYOUT_PATH = os.path.join(TEST_DATA_PATH, "root.layout")
 GPG_KEYRING = os.path.join(TEST_DATA_PATH, "gpg_keyring")
@@ -42,6 +42,13 @@ LAYOUT_KEY_ID = "88876A89E3D4698F83D3DB0E72E33CA3E0E04E46"
 FINAL_PRODUCT_PATH = os.path.join(TEST_DATA_PATH,
     "final-product_0.0.0.0-0_all.deb")
 
+# Absolute path to intoto transport. It will use this path (argv[0])
+# to find the http transport.
+INTOTO_EXEC = os.path.join(TEST_PATH, "..", "intoto.py")
+
+# Path to mock rebuilder server executable
+MOCK_REBUILDER_EXEC = os.path.join(TEST_PATH, "serve_metadata.py")
+
 # Messages are stripped to contain only the required fields for this test
 _MSG_CAPABILITIES = \
 """100 Capabilities
@@ -49,13 +56,14 @@ _MSG_CAPABILITIES = \
 """
 _MSG_CONFIG = \
 """601 Configuration
-Config-Item: APT::Intoto::Rebuilders::=127.0.0.1:8081/
-Config-Item: APT::Intoto::Rebuilders::=127.0.0.1:8082/
+Config-Item: APT::Intoto::Rebuilders::=http://127.0.0.1:8081
+Config-Item: APT::Intoto::Rebuilders::=http://127.0.0.1:8082
+Config-Item: APT::Intoto::LogLevel::={}
 Config-Item: APT::Intoto::Layout::={}
-Config-Item: APT::Intoto::Keyid::={}
+Config-Item: APT::Intoto::Keyids::={}
 Config-Item: APT::Intoto::GPGHomedir::={}
 
-""".format(LAYOUT_PATH, LAYOUT_KEY_ID, GPG_KEYRING)
+""".format(LOG_LEVEL, LAYOUT_PATH, LAYOUT_KEY_ID, GPG_KEYRING)
 
 _MSG_ACQUIRE = \
 """600 URI Acquire
@@ -101,21 +109,20 @@ class InTotoTransportTestCase(unittest.TestCase):
   def test_basic_message_flow(self):
     """Mock basic apt process that starts and communicates with the intoto
     transport. """
-    # Build absolute path to intoto transport. It will use this path (argv[0])
-    # to find the http transport.
-    intoto_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "..", "intoto.py")
+
+    # Start http servers to mock two rebuilders, serving link metadata on ports
+    rebuilder_procs = []
+    for port, metadata_file in [
+        ("8081", "rebuild.5863835e.link"), ("8082", "rebuild.e946fc60.link")]:
+      metadata_request = "/sources/final-product/0.0.0.0-0/metadata"
+      metadata_path = os.path.join(TEST_DATA_PATH, metadata_file)
+      rebuilder_procs.append(subprocess.Popen(["python", MOCK_REBUILDER_EXEC,
+          port, metadata_request, metadata_path], stderr=subprocess.DEVNULL))
 
     # Run intoto.py transport as subprocess with stdin, stdout pipe
-    intoto_proc = subprocess.Popen(["python", intoto_path],
+    intoto_proc = subprocess.Popen(["python", INTOTO_EXEC],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-
-    """
-    Create subprocesses that each serve a filefrom
-    localhost:8081 "sources/final-product/0.0.0.0-0/metadata" --> rebuild.5863835e.link
-    localhost:8082 "sources/final-product/0.0.0.0-0/metadata" --> rebuild.e946fc60.link
-    """
 
     # Wait for Capabilities
     _recv(intoto_proc.stdout)
@@ -129,6 +136,9 @@ class InTotoTransportTestCase(unittest.TestCase):
     intoto_proc.stdin.close()
     intoto_proc.send_signal(signal.SIGINT)
 
+    # Stop mock rebuilder servers
+    for rebuilder_proc in rebuilder_procs:
+      rebuilder_proc.send_signal(signal.SIGINT)
 
 if __name__ == "__main__":
   unittest.main()
