@@ -102,7 +102,6 @@
 """
 import os
 import sys
-import time
 import signal
 import select
 import threading
@@ -110,12 +109,33 @@ import Queue
 import logging
 import logging.handlers
 import subprocess32 as subprocess
+import requests
+import tempfile
+import shutil
 
-# TODO: Should we setup a SysLogHandler and write to /var/log/apt/intoto ?
-LOG_FILE = "/tmp/intoto.log"
+import in_toto.util
+import in_toto.verifylib
+import in_toto.models.link
+import in_toto.models.metadata
+
+# Configure base logger with lowest log level (i.e. log all messages) and
+# finetune the actual log levels on handlers
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
-logger.addHandler(logging.handlers.RotatingFileHandler(LOG_FILE))
+logger.setLevel(logging.DEBUG)
+
+# A file handler for debugging purposes
+LOG_FILE = "/tmp/intoto.log"
+LOG_HANDLER_FILE = logging.handlers.RotatingFileHandler(LOG_FILE)
+LOG_HANDLER_FILE.setLevel(logging.DEBUG)
+logger.addHandler(LOG_HANDLER_FILE)
+
+# A stream handler (stderr), which can be configured in apt configuration file,
+# e.g.: APT::Intoto::LogLevel::=10
+# NOTE: Use file handler above to debug events prior to apt's `601
+# CONFIGURATION` message which may set the SteamHandler's loglevel
+LOG_HANDLER_STDERR = logging.StreamHandler()
+LOG_HANDLER_STDERR.setLevel(logging.INFO)
+logger.addHandler(LOG_HANDLER_STDERR)
 
 APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 
@@ -123,8 +143,9 @@ APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 # Upon reception we set INTERRUPTED to true, which may be used to gracefully
 # terminate.
 INTERRUPTED = False
-def signal_handler(signal, frame):
+def signal_handler(*junk):
   # Set global INTERRUPTED flag telling worker threads to terminate
+  logger.debug("Received SIGINT, setting global INTERRUPTED true")
   global INTERRUPTED
   INTERRUPTED = True
 
@@ -169,7 +190,7 @@ MESSAGE_TYPE = {
     "info": "Log",
     "fields": ["Message"]
   },
-  # Inter-URI status reporting (login progress)
+  # Inter-URI status reporting (logging progress)
   STATUS: {
     "info": "Status",
     "fields": ["Message"]
@@ -294,8 +315,8 @@ def deserialize_one(message_str):
     field_name = header_field_parts.pop(0).strip()
 
     if field_name not in MESSAGE_TYPE[code]["fields"]:
-      logger.warning("Unsupported header field for message code {}: {},"
-          " message was:\n{}".format(code, field_name, message_str))
+      logger.debug("Undefined header field for message code {}: {},"
+          .format(code, field_name))
 
     field_value = ":".join(header_field_parts).strip()
     header_fields.append((field_name, field_value))
@@ -335,8 +356,7 @@ def serialize_one(message_data):
 
   # Add message header fields and values (must be list of tuples)
   for field_name, field_value in message_data.get("fields", []):
-    for val in field_value:
-      message_str += "{}: {}\n".format(field_name, val)
+    message_str += "{}: {}\n".format(field_name, field_value)
 
   # Blank line to mark end of message
   message_str += "\n"
@@ -388,6 +408,17 @@ def write_one(message_str, stream):
   stream.flush()
 
 
+def notify_apt(code, message_text, uri):
+  write_one(serialize_one({
+      "code": code,
+      "info": MESSAGE_TYPE[code]["info"],
+      "fields": [
+        ("Message", message_text),
+        ("URI", uri)
+      ]
+    }), sys.stdout)
+
+
 def read_to_queue(stream, queue):
   """Loop to read messages one at a time from the passed stream until EOF, i.e.
   the returned message is None, and write to the passed queue.
@@ -404,8 +435,212 @@ def read_to_queue(stream, queue):
 # Dict to keep some global state, i.e. we need information from earlier
 # messages (e.g. CONFIGURATION) when doing in-toto verification upon URI_DONE.
 global_info = {
-  "config": {},
+  "config": {
+    "Rebuilders": [],
+    "GPGHomedir": "",
+    "Layout": "",
+    "Keyids": []
+  }
 }
+
+def _intoto_parse_config(message_data):
+  """Upon apt `601 Configuration` parse intoto config items and assign to
+  global config store. Example message data:
+  {
+    'code': 601,
+    'info': 'Configuration'
+    'fields': [
+      ('Config-Item', 'APT::Intoto::Rebuilders::=http://158.39.77.214/'),
+      ('Config-Item', 'APT::Intoto::Rebuilders::=https://reproducible-builds.engineering.nyu.edu/'),
+      ('Config-Item', 'APT::Intoto::GPGHomedir::=/path/to/gpg/keyring'),
+      ('Config-Item', 'APT::Intoto::Layout::=/path/to/root.layout'),
+      ('Config-Item', 'APT::Intoto::Keyids::=88876A89E3D4698F83D3DB0E72E33CA3E0E04E46'),
+      ('Config-Item', 'APT::Intoto::LogLevel::=10'
+       ...
+    ],
+  }
+
+  """
+  for field_name, field_value in message_data["fields"]:
+    if field_name == "Config-Item" and field_value.startswith("APT::Intoto"):
+      # Dissect config item
+      logger.debug(field_value)
+      junk, junk, config_name, config_value = field_value.split("::")
+      # Strip leading "=", courtesy of apt config
+      config_value = config_value.lstrip("=")
+
+      # Assign exhaustive intoto configs
+      if config_name in ["Rebuilders", "Keyids"]:
+        global_info["config"][config_name].append(config_value)
+
+      elif config_name in ["GPGHomedir", "Layout"]:
+        global_info["config"][config_name] = config_value
+
+      elif config_name == "LogLevel":
+        try:
+          LOG_HANDLER_STDERR.setLevel(int(config_value))
+          logger.debug("Set stderr LogLevel to '{}'".format(config_value))
+
+        except Exception:
+          logger.warning("Ignoring unknown LogLevel '{}'".format(config_value))
+
+
+      else:
+        logger.warning("Skipping unknown config item '{}'".format(field_value))
+
+  logger.debug("Configured intoto session: '{}'".format(global_info["config"]))
+
+
+def _intoto_verify(message_data):
+  """Upon http `201 URI Done` check if the downloaded package is in the global
+  package store (see `_intoto_parse_package`), to filter out index files and
+  perform in-toto verification using the session config (see
+  `_intoto_parse_config`). Example message data:
+
+  {
+    'code': 201,
+    'info': 'URI Done'
+    'fields': [
+      ('URI', 'intoto://www.example.com/~foo/debian/pool/main/cowsay_3.03+dfsg1-10_all.deb'),
+      ('Filename', '/var/cache/apt/archives/partial/cowsay_3.03+dfsg1-10_all.deb'),
+      ('Size', '20020'),
+      ('Last-Modified', 'Mon, 26 Nov 2018 14:39:07 GMT'),
+      ('MD5-Hash', '071b...'),
+      ('MD5Sum-Hash', '071b...'),
+      ('SHA1-Hash', '3794...'),
+      ('SHA256-Hash', 'fd04...'),
+      ('SHA512-Hash','95bc...'),
+      ...
+    ],
+  }
+
+  """
+  # Get location of file that was downloaded
+  filename = dict(message_data["fields"]).get("Filename", "")
+  uri = dict(message_data["fields"]).get("URI", "")
+
+  # Parse package name and version-release according to naming convention, i.e.
+  #    packagename_version-release_architecture.deb
+  # If we can parse packagename and version-release we will try in-toto
+  # verification
+  pkg_name = pkg_version_release = None
+  if filename.endswith(".deb"):
+    pkg_name_parts = os.path.basename(filename).split("_")
+    if len(pkg_name_parts) == 3:
+      pkg_name = pkg_name_parts[0]
+      pkg_version_release = pkg_name_parts[1]
+
+  if not (pkg_name and pkg_version_release):
+    logger.info("Skipping in-toto verification for '{}'. ".format(filename))
+    return True
+
+  logger.info("Prepare in-toto verification for '{}'".format(filename))
+
+  # Create temp dir
+  verification_dir = tempfile.mkdtemp()
+  logger.info("Create verification directory '{}'"
+      .format(verification_dir))
+
+  logger.info("Request in-toto metadata from {} rebuilder(s) (apt config)"
+      .format(len(global_info["config"]["Rebuilders"])))
+  # Download link files to verification directory
+  for rebuilder in global_info["config"]["Rebuilders"]:
+    # Accept rebuilders with and without trailing slash
+    endpoint = "{rebuilder}/sources/{name}/{version}/metadata".format(
+        rebuilder=rebuilder.rstrip("/"), name=pkg_name,
+        version=pkg_version_release)
+
+    logger.info("Request in-toto metadata from {}".format(endpoint))
+
+    try:
+      # Fetch metadata
+      response = requests.get(endpoint)
+      if not response.status_code == 200:
+        raise Exception("server response: {}".format(response.status_code))
+
+      # Decode json
+      link_json = response.json()
+
+      # Load as in-toto metadata
+      link_metablock = in_toto.models.metadata.Metablock(
+          signatures=link_json["signatures"],
+          signed=in_toto.models.link.Link.read(link_json["signed"]))
+
+      # Construct link name as required by in-toto verification
+      link_name = in_toto.models.link.FILENAME_FORMAT.format(
+          keyid=link_metablock.signatures[0]["keyid"],
+          step_name=link_metablock.signed.name)
+
+      # Write link metadata to temporary verification directory
+      link_metablock.dump(os.path.join(verification_dir, link_name))
+
+    except Exception as e:
+      # We don't fail just yet if metadata cannot be downloaded or stored
+      # successfully. Instead we let in-toto verification further below fail if
+      # there is not enought metadata
+      logger.warning("Could not retrieve in-toto metadata from rebuilder '{}',"
+          " reason was: {}".format(rebuilder, e))
+      continue
+
+    else:
+      logger.info("Successfully downloaded in-toto metadata '{}'"
+          " from rebuilder '{}'".format(link_name, rebuilder))
+
+
+  # Copy final product downloaded by http to verification directory
+  logger.info("Copy final product to verification directory")
+  shutil.copy(filename, verification_dir)
+
+  # Temporarily change to verification, changing back afterwards
+  cached_cwd = os.getcwd()
+  os.chdir(verification_dir)
+
+  try:
+    logger.info("Load in-toto layout '{}' (apt config)"
+        .format(global_info["config"]["Layout"]))
+
+    layout = in_toto.models.metadata.Metablock.load(
+        global_info["config"]["Layout"])
+
+    keyids = global_info["config"]["Keyids"]
+    gpg_home = global_info["config"]["GPGHomedir"]
+
+    logger.info("Load in-toto layout key(s) '{}' (apt config)".format(
+        global_info["config"]["Keyids"]))
+    if gpg_home:
+      logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
+      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
+          keyids, gpg_home=gpg_home)
+    else:
+      logger.info("Use default gpg keyring")
+      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
+          keyids)
+
+    logger.info("Run in-toto verification")
+
+    # Run verification
+    in_toto.verifylib.in_toto_verify(layout, layout_keys)
+
+  except Exception as e:
+    error_msg = ("In-toto verification for '{}' failed, reason was: {}"
+        .format(filename, str(e)))
+    logger.error(error_msg)
+    # Notify apt about the failure ...
+    notify_apt(URI_FAILURE, error_msg, uri)
+    # ... and do not relay http's URI Done (so that apt does not install it)
+    return False
+
+  else:
+    logger.info("In-toto verification for '{}' passed! :)".format(filename))
+
+  finally:
+    os.chdir(cached_cwd)
+    shutil.rmtree(verification_dir)
+
+  # If we got here verification was either skipped (non *.deb file) or passed,
+  # we can relay the message.
+  return True
+
 
 def handle(message_data):
   """Handle passed message to parse configuration and perform in-toto
@@ -421,61 +656,15 @@ def handle(message_data):
   be relayed or not.
 
   """
-  # Parse out configuration data
+  logger.debug("Handling message: {}".format(message_data["code"]))
+  # Parse out configuration data required for in-toto verification below
   if message_data["code"] == CONFIGURATION:
-    # TODO: Call function to parse in-toto related config items
-    # (reproducer URL, layout path, gpg keyid(s) or pem file path(s)), and
-    # add them to our `global_info` dict, the function could look something
-    # like:
-    # for name, value in message_data["fields"].iteritems():
-    #   if name == "Config-Item" and value.startswith("APT::intoto::"):
-    #     global_info["config"][value_parts[0]] = value_parts[1]
-    pass
+    _intoto_parse_config(message_data)
 
-  elif message_data["code"] == URI_ACQUIRE:
-    # TODO: Should cache URIs that apt wants us to download? We could take
-    # a look at the `Index-File` header field to later decide if we try
-    # to fetch link metadata for this file.
-    pass
-
+  # Perform in-toto verification for non-index files
+  # The return value decides if the message should be relayed or not
   elif message_data["code"] == URI_DONE:
-    # The http transport has downloaded the package requested by apt and
-    # sends an URI_DONE to signal that the package can be installed. Here's
-    # an example deserialized URI_DONE message:
-
-    # {
-    #   'code': 201,
-    #   'info': 'URI Done'
-    #   'fields': [
-    #     ('URI', 'intoto://www.example.com/~foo/debian/pool/main/cowsay_3.03+dfsg1-10_all.deb'),
-    #     ('Filename', '/var/cache/apt/archives/partial/cowsay_3.03+dfsg1-10_all.deb'),
-    #     ('Size', '20020'),
-    #     ('Last-Modified', 'Mon, 26 Nov 2018 14:39:07 GMT'),
-    #     ('MD5-Hash', '071b...'),
-    #     ('MD5Sum-Hash', '071b...'),
-    #     ('SHA1-Hash', '3794...'),
-    #     ('SHA256-Hash', 'fd04...'),
-    #     ('SHA512-Hash','95bc...')
-    #   ],
-    # }
-
-    # TODO:
-    # Optionally check global_info if this the corresponding URI_ACQUIRE told
-    # us that this is an Index-File and skip in-toto verification if yes
-    # 1. Create temp dir
-    # 2. download link metadata from reproducer (see config in global_info)
-    # 3. move final product, i.e. debian package to temp dir
-    # 4. run in-toto verification using the specified layout and keys (see
-    # config in global_info)
-    # 5.a. Return True on successful verification, i.e. URI_DONE is relayed
-    # to apt, which will install the package
-    # 5.b. Send URI_FAILURE or GENERAL_FAILURE to apt if verification
-    # fails and return False, i.e. URI_DONE is not relayed.
-    #
-    # Optionally send STATUS or LOG messages to apt, while doing all of above
-    # To send these messages to apt use
-    # `write_one(serialize_message(<msg dict in above format>), sys.stdout)`
-    pass
+    return _intoto_verify(message_data)
 
   # All good, we can relay the message
   return True
@@ -515,13 +704,14 @@ def loop():
   # queue, and relay them to the corresponding streams, injecting in-toto
   # verification upon reception of a particular message.
   while True:
-    for queue, out in [
-        (apt_queue, http_proc.stdin),
-        (http_queue, sys.stdout)]:
+    for name, queue, out in [
+        ("apt", apt_queue, http_proc.stdin),
+        ("http", http_queue, sys.stdout)]:
 
       should_relay = True
       try:
         message = queue.get_nowait()
+        logger.debug("{} sent message:\n{}".format(name, message))
         message_data = deserialize_one(message)
 
       except Queue.Empty:
@@ -529,14 +719,16 @@ def loop():
 
       # De-serialization error: Skip message handling, but do relay.
       except Exception as e:
-        logger.warning(e)
+        logger.debug("Cannot handle message, reason is {}".format(e))
 
       else:
         # Read config, perform in-toto verification in there we also
         # decide whether we should relay the message or not.
+        logger.debug("Handle message")
         should_relay = handle(message_data)
 
       if should_relay:
+        logger.debug("Relay message")
         write_one(message, out)
 
     # Exit when both threads have terminated (on EOF or INTERRUPTED)
@@ -544,9 +736,14 @@ def loop():
     # in the queue, assuming that there aren't or we can ignore them if both
     # threads have terminated.
     if (not apt_thread.is_alive() and not http_thread.is_alive()):
+      logger.debug("The worker threads are dead. Long live the worker threads!"
+          "Terminating.")
+
       # If apt has sent us a SIGINT we relay it to the subprocess
       if INTERRUPTED:
+        logger.debug("Relay SIGINT to http subprocess")
         http_proc.send_signal(signal.SIGINT)
+
       return
 
 

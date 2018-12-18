@@ -1,0 +1,22 @@
+{
+ "signatures": [
+  {
+   "keyid": "e946fc6076d683584e6803dbd35bad6a79a3c6b3",
+   "other_headers": "04000108001d162104e946fc6076d683584e6803dbd35bad6a79a3c6b305025c095e7a",
+   "signature": "3fd6f3ef7ce2f0f8eccd92ef176bb95f2f49da327ac95609df23a19310dc32de05d02c0f79ad57aa2a070a13c209ff722233b41fe0c25c9be771739532536cd27224a975eaf53d621873fd8b10094fefaf8324e2b47d6ce2ceb3ee1b9e3ff8abcfb316c2a91a50fd798ae050a5d86fc693b07d18ac2e664965a71b7069c0c6ff164d08a449e885bf7edc06433d10ede6544820cd16cdf37301eb390647e218d4c5cef14c1e9bfcaab6f26de0f972288c8c09abe90a80c771d699a9864b2485ce7a55cfe46c79459d1985a4d5bfc1f7471694f3798ad00520a9bddb90e907689d647949b33581d23d425d828cb52be75abb46504c5615e420fdbdef4c991e84ff"
+  }
+ ],
+ "signed": {
+  "_type": "link",
+  "byproducts": {},
+  "command": [],
+  "environment": {},
+  "materials": {},
+  "name": "rebuild",
+  "products": {
+   "final-product_0.0.0.0-0_all.deb": {
+    "sha256": "95b066f599e599e67f379bf36e696fe6d59ad4c07b7e026189cdb3f353c94eb1"
+   }
+  }
+ }
+}
