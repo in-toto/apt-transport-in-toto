@@ -1,4 +1,12 @@
-APT::Intoto::Rebuilders {
-    "http://158.39.77.214/";
-    "https://reproducible-builds.engineering.nyu.edu/";
+APT::Intoto {
+  LogLevel {"20"}; # See https://docs.python.org/3/library/logging.html#logging-levels
+  Rebuilders {
+    "http://158.39.77.214";
+    "https://reproducible-builds.engineering.nyu.edu";
+  };
+  GPGHomedir {"/path/to/gpg/keyring"};
+  Layout {"/path/to/root.layout"};
+  Keyids {
+    "88876A89E3D4698F83D3DB0E72E33CA3E0E04E46"
+  };
 };
