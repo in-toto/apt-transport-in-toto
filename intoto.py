@@ -102,7 +102,6 @@
 """
 import os
 import sys
-import time
 import signal
 import select
 import threading
