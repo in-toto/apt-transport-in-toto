@@ -433,10 +433,57 @@ global_info = {
     "Rebuilders": [],
     "GPGHomedir": "",
     "Layout": "",
-    "Keyid": ""
-  },
-  "packages": []
+    "Keyids": []
+  }
 }
+
+def _intoto_parse_config(message_data):
+  """Upon apt `601 Configuration` parse intoto config items and assign to
+  global config store. Example message data:
+  {
+    'code': 601,
+    'info': 'Configuration'
+    'fields': [
+      ('Config-Item', 'APT::Intoto::Rebuilders::=http://158.39.77.214/'),
+      ('Config-Item', 'APT::Intoto::Rebuilders::=https://reproducible-builds.engineering.nyu.edu/'),
+      ('Config-Item', 'APT::Intoto::GPGHomedir::=/path/to/gpg/keyring'),
+      ('Config-Item', 'APT::Intoto::Layout::=/path/to/root.layout'),
+      ('Config-Item', 'APT::Intoto::Keyids::=88876A89E3D4698F83D3DB0E72E33CA3E0E04E46'),
+      ('Config-Item', 'APT::Intoto::LogLevel::=10'
+       ...
+    ],
+  }
+
+  """
+  for field_name, field_value in message_data["fields"]:
+    if field_name == "Config-Item" and field_value.startswith("APT::Intoto"):
+      # Dissect config item
+      logger.debug(field_value)
+      junk, junk, config_name, config_value = field_value.split("::")
+      # Strip leading "=", courtesy of apt config
+      config_value = config_value.lstrip("=")
+
+      # Assign exhaustive intoto configs
+      if config_name in ["Rebuilders", "Keyids"]:
+        global_info["config"][config_name].append(config_value)
+
+      elif config_name in ["GPGHomedir", "Layout"]:
+        global_info["config"][config_name] = config_value
+
+      elif config_name == "LogLevel":
+        try:
+          LOG_HANDLER_STDERR.setLevel(int(config_value))
+          logger.debug("Set stderr LogLevel to '{}'".format(config_value))
+
+        except Exception:
+          logger.warning("Ignoring unknown LogLevel '{}'".format(config_value))
+
+
+      else:
+        logger.warning("Skipping unknown config item '{}'".format(field_value))
+
+  logger.debug("Configured intoto session: '{}'".format(global_info["config"]))
+
 
 
 def handle(message_data):
@@ -453,40 +500,10 @@ def handle(message_data):
   be relayed or not.
 
   """
-  logger.debug("Handling message: {}".format(message_data))
-  # Parse out configuration data
+  logger.debug("Handling message: {}".format(message_data["code"]))
+  # Parse out configuration data required for in-toto verification below
   if message_data["code"] == CONFIGURATION:
-    for name, value in message_data["fields"]:
-      if name == "Config-Item" and value.startswith("APT::Intoto"):
-        value_parts = value.split("::")
-        if isinstance(global_info["config"][value_parts[2]], list):
-          global_info["config"][value_parts[2]].append(value_parts[3][1:])
-        else:
-          global_info["config"][value_parts[2]] = value_parts[3][1:]
-
-    logger.debug("Intoto session configuration: {}".format(global_info))
-
-  # elif message_data["code"] == URI_ACQUIRE:
-  #   if message_data["fields"][2][0] == "Index-File":
-  #       return True
-  #     #{'info': 'URI Acquire', 'fields': [('URI', 'intoto://deb.debian.org/debian/pool/main/m/mosh/mosh_1.2.6-1+b2_amd64.deb'), ('Filename', '/var/cache/apt/archives/partial/mosh_1.2.6-1+b2_amd64.deb'), ('Expected-SHA256', '9438e579f102c5d1c8a916e4950d444e03cca61c9e46fa80b6ab78f208e8a2af'), ('Expected-MD5Sum', '42be0ef350f3f500fe515c780250ca2c'), ('Expected-Checksum-FileSize', '203334')], 'code': 600}
-  #   package = {
-  #     "filename": "",
-  #     "path": "",
-  #     "name": "",
-  #     "version": "",
-  #     "checksum": "",
-  #     "arch": ""
-  #   }
-  #   package["path"] = message_data["fields"][1][1]
-  #   package["checksum"] = message_data["fields"][2][1]
-  #   package["filename"] = package["path"].split("/")[-1]
-  #   package["name"], package["version"], _arch = package["filename"].split("_")
-  #   # Remove .deb at the end of the arch
-  #   package["arch"] = _arch.split(".")[0]
-
-  #   global_info["packages"].append(package)
-  #   logger.debug("Saved package: {}".format(package))
+    _intoto_parse_config(message_data)
 
   elif message_data["code"] == URI_DONE:
     # The http transport has downloaded the package requested by apt and
