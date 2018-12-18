@@ -111,11 +111,25 @@ import logging.handlers
 import subprocess32 as subprocess
 import requests
 
-# TODO: Should we setup a SysLogHandler and write to /var/log/apt/intoto ?
-LOG_FILE = "/tmp/intoto.log"
+
+# Configure base logger with lowest log level (i.e. log all messages) and
+# finetune the actual log levels on handlers
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.handlers.RotatingFileHandler(LOG_FILE))
+
+# A file handler for debugging purposes
+LOG_FILE = "/tmp/intoto.log"
+LOG_HANDLER_FILE = logging.handlers.RotatingFileHandler(LOG_FILE)
+LOG_HANDLER_FILE.setLevel(logging.DEBUG)
+logger.addHandler(LOG_HANDLER_FILE)
+
+# A stream handler (stderr), which can be configured in apt configuration file,
+# e.g.: APT::Intoto::LogLevel::=10
+# NOTE: Use file handler above to debug events prior to apt's `601
+# CONFIGURATION` message which may set the SteamHandler's loglevel
+LOG_HANDLER_STDERR = logging.StreamHandler()
+LOG_HANDLER_STDERR.setLevel(logging.INFO)
+logger.addHandler(LOG_HANDLER_STDERR)
 
 APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 
@@ -125,6 +139,7 @@ APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 INTERRUPTED = False
 def signal_handler(signal, frame):
   # Set global INTERRUPTED flag telling worker threads to terminate
+  logger.debug("Received SIGINT, setting global INTERRUPTED true")
   global INTERRUPTED
   INTERRUPTED = True
 
@@ -169,7 +184,7 @@ MESSAGE_TYPE = {
     "info": "Log",
     "fields": ["Message"]
   },
-  # Inter-URI status reporting (login progress)
+  # Inter-URI status reporting (logging progress)
   STATUS: {
     "info": "Status",
     "fields": ["Message"]
@@ -294,8 +309,8 @@ def deserialize_one(message_str):
     field_name = header_field_parts.pop(0).strip()
 
     if field_name not in MESSAGE_TYPE[code]["fields"]:
-      logger.warning("Unsupported header field for message code {}: {},"
-          " message was:\n{}".format(code, field_name, message_str))
+      logger.debug("Undefined header field for message code {}: {},"
+          .format(code, field_name))
 
     field_value = ":".join(header_field_parts).strip()
     header_fields.append((field_name, field_value))
@@ -560,23 +575,24 @@ def loop():
       should_relay = True
       try:
         message = queue.get_nowait()
+        logger.debug("{} sent message:\n{}".format(name, message))
         message_data = deserialize_one(message)
-        logger.debug("{} sent us a message".format(name))
 
       except Queue.Empty:
         continue
 
       # De-serialization error: Skip message handling, but do relay.
       except Exception as e:
-        logger.warning(e)
+        logger.debug("Cannot handle message, reason is {}".format(e))
 
       else:
         # Read config, perform in-toto verification in there we also
         # decide whether we should relay the message or not.
+        logger.debug("Handle message")
         should_relay = handle(message_data)
 
       if should_relay:
-        logger.debug("Relayed message: {}".format(message))
+        logger.debug("Relay message")
         write_one(message, out)
 
     # Exit when both threads have terminated (on EOF or INTERRUPTED)
@@ -584,9 +600,14 @@ def loop():
     # in the queue, assuming that there aren't or we can ignore them if both
     # threads have terminated.
     if (not apt_thread.is_alive() and not http_thread.is_alive()):
+      logger.debug("The worker threads are dead. Long live the worker threads!"
+          "Terminating.")
+
       # If apt has sent us a SIGINT we relay it to the subprocess
       if INTERRUPTED:
+        logger.debug("Relay SIGINT to http subprocess")
         http_proc.send_signal(signal.SIGINT)
+
       return
 
 
