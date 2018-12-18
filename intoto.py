@@ -110,7 +110,13 @@ import logging
 import logging.handlers
 import subprocess32 as subprocess
 import requests
+import tempfile
+import shutil
 
+import in_toto.util
+import in_toto.verifylib
+import in_toto.models.link
+import in_toto.models.metadata
 
 # Configure base logger with lowest log level (i.e. log all messages) and
 # finetune the actual log levels on handlers
@@ -485,6 +491,156 @@ def _intoto_parse_config(message_data):
   logger.debug("Configured intoto session: '{}'".format(global_info["config"]))
 
 
+def _intoto_verify(message_data):
+  """Upon http `201 URI Done` check if the downloaded package is in the global
+  package store (see `_intoto_parse_package`), to filter out index files and
+  perform in-toto verification using the session config (see
+  `_intoto_parse_config`). Example message data:
+
+  {
+    'code': 201,
+    'info': 'URI Done'
+    'fields': [
+      ('URI', 'intoto://www.example.com/~foo/debian/pool/main/cowsay_3.03+dfsg1-10_all.deb'),
+      ('Filename', '/var/cache/apt/archives/partial/cowsay_3.03+dfsg1-10_all.deb'),
+      ('Size', '20020'),
+      ('Last-Modified', 'Mon, 26 Nov 2018 14:39:07 GMT'),
+      ('MD5-Hash', '071b...'),
+      ('MD5Sum-Hash', '071b...'),
+      ('SHA1-Hash', '3794...'),
+      ('SHA256-Hash', 'fd04...'),
+      ('SHA512-Hash','95bc...'),
+      ...
+    ],
+  }
+
+  """
+  # Get location of file that was downloaded
+  filename = dict(message_data["fields"]).get("Filename", "")
+  uri = dict(message_data["fields"]).get("URI", "")
+
+  # Parse package name and version-release according to naming convention, i.e.
+  #    packagename_version-release_architecture.deb
+  # If we can parse packagename and version-release we will try in-toto
+  # verification
+  pkg_name = pkg_version_release = None
+  if filename.endswith(".deb"):
+    pkg_name_parts = os.path.basename(filename).split("_")
+    if len(pkg_name_parts) == 3:
+      pkg_name = pkg_name_parts[0]
+      pkg_version_release = pkg_name_parts[1]
+
+  if not (pkg_name and pkg_version_release):
+    logger.info("Skipping in-toto verification for '{}'. ".format(filename))
+    return True
+
+  logger.info("Prepare in-toto verification for '{}'".format(filename))
+
+  # Create temp dir
+  verification_dir = tempfile.mkdtemp()
+  logger.info("Create verification directory '{}'"
+      .format(verification_dir))
+
+  logger.info("Request in-toto metadata from {} rebuilder(s) (apt config)"
+      .format(len(global_info["config"]["Rebuilders"])))
+  # Download link files to verification directory
+  for rebuilder in global_info["config"]["Rebuilders"]:
+    # Accept rebuilders with and without trailing slash
+    endpoint = "{rebuilder}/sources/{name}/{version}/metadata".format(
+        rebuilder=rebuilder.rstrip("/"), name=pkg_name,
+        version=pkg_version_release)
+
+    logger.info("Request in-toto metadata from {}".format(endpoint))
+
+    try:
+      # Fetch metadata
+      response = requests.get(endpoint)
+      if not response.status_code == 200:
+        raise Exception("server response: {}".format(response.status_code))
+
+      # Decode json
+      link_json = response.json()
+
+      # Load as in-toto metadata
+      link_metablock = in_toto.models.metadata.Metablock(
+          signatures=link_json["signatures"],
+          signed=in_toto.models.link.Link.read(link_json["signed"]))
+
+      # Construct link name as required by in-toto verification
+      link_name = in_toto.models.link.FILENAME_FORMAT.format(
+          keyid=link_metablock.signatures[0]["keyid"],
+          step_name=link_metablock.signed.name)
+
+      # Write link metadata to temporary verification directory
+      link_metablock.dump(os.path.join(verification_dir, link_name))
+
+    except Exception as e:
+      # We don't fail just yet if metadata cannot be downloaded or stored
+      # successfully. Instead we let in-toto verification further below fail if
+      # there is not enought metadata
+      logger.warning("Could not retrieve in-toto metadata from rebuilder '{}',"
+          " reason was: {}".format(rebuilder, e))
+      continue
+
+    else:
+      logger.info("Successfully downloaded in-toto metadata '{}'"
+          " from rebuilder '{}'".format(link_name, rebuilder))
+
+
+  # Copy final product downloaded by http to verification directory
+  logger.info("Copy final product to verification directory")
+  shutil.copy(filename, verification_dir)
+
+  # Temporarily change to verification, changing back afterwards
+  cached_cwd = os.getcwd()
+  os.chdir(verification_dir)
+
+  try:
+    logger.info("Load in-toto layout '{}' (apt config)"
+        .format(global_info["config"]["Layout"]))
+
+    layout = in_toto.models.metadata.Metablock.load(
+        global_info["config"]["Layout"])
+
+    keyids = global_info["config"]["Keyids"]
+    gpg_home = global_info["config"]["GPGHomedir"]
+
+    logger.info("Load in-toto layout key(s) '{}' (apt config)".format(
+        global_info["config"]["Keyids"]))
+    if gpg_home:
+      logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
+      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
+          keyids, gpg_home=gpg_home)
+    else:
+      logger.info("Use default gpg keyring")
+      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
+          keyids)
+
+    logger.info("Run in-toto verification")
+
+    # Run verification
+    in_toto.verifylib.in_toto_verify(layout, layout_keys)
+
+  except Exception as e:
+    error_msg = ("In-toto verification for '{}' failed, reason was: {}"
+        .format(filename, str(e)))
+    logger.error(error_msg)
+    # Notify apt about the failure ...
+    notify_apt(URI_FAILURE, error_msg, uri)
+    # ... and do not relay http's URI Done (so that apt does not install it)
+    return False
+
+  else:
+    logger.info("In-toto verification for '{}' passed! :)".format(filename))
+
+  finally:
+    os.chdir(cached_cwd)
+    shutil.rmtree(verification_dir)
+
+  # If we got here verification was either skipped (non *.deb file) or passed,
+  # we can relay the message.
+  return True
+
 
 def handle(message_data):
   """Handle passed message to parse configuration and perform in-toto
@@ -505,57 +661,10 @@ def handle(message_data):
   if message_data["code"] == CONFIGURATION:
     _intoto_parse_config(message_data)
 
+  # Perform in-toto verification for non-index files
+  # The return value decides if the message should be relayed or not
   elif message_data["code"] == URI_DONE:
-    # The http transport has downloaded the package requested by apt and
-    # sends an URI_DONE to signal that the package can be installed. Here's
-    # an example deserialized URI_DONE message:
-
-    # {
-    #   'code': 201,
-    #   'info': 'URI Done'
-    #   'fields': [
-    #     ('URI', 'intoto://www.example.com/~foo/debian/pool/main/cowsay_3.03+dfsg1-10_all.deb'),
-    #     ('Filename', '/var/cache/apt/archives/partial/cowsay_3.03+dfsg1-10_all.deb'),
-    #     ('Size', '20020'),
-    #     ('Last-Modified', 'Mon, 26 Nov 2018 14:39:07 GMT'),
-    #     ('MD5-Hash', '071b...'),
-    #     ('MD5Sum-Hash', '071b...'),
-    #     ('SHA1-Hash', '3794...'),
-    #     ('SHA256-Hash', 'fd04...'),
-    #     ('SHA512-Hash','95bc...')
-    #   ],
-    # }
-
-    # TODO:
-    # Optionally check global_info if this the corresponding URI_ACQUIRE told
-    # us that this is an Index-File and skip in-toto verification if yes
-    # 1. Create temp dir
-    # 2. download link metadata from reproducer (see config in global_info)
-    # 3. move final product, i.e. debian package to temp dir
-    # 4. run in-toto verification using the specified layout and keys (see
-    # config in global_info)
-    # 5.a. Return True on successful verification, i.e. URI_DONE is relayed
-    # to apt, which will install the package
-    # 5.b. Send URI_FAILURE or GENERAL_FAILURE to apt if verification
-    # fails and return False, i.e. URI_DONE is not relayed.
-    #
-    # Optionally send STATUS or LOG messages to apt, while doing all of above
-    # To send these messages to apt use
-    # `write_one(serialize_message(<msg dict in above format>), sys.stdout)`
-    for pkg in global_info["packages"]:
-      for rebuilder in global_info["config"]["Rebuilders"]:
-        logger.debug("Using rebuilder: {}".format(rebuilder))
-        url = "{rebuilder}sources/{name}/{version}/metadata".format(rebuilder=rebuilder, **pkg)
-        logger.debug("Requesting metadata: {}".format(url))
-        r = requests.get(url)
-        if r.status_code == 200:
-          for key, value in r.json()["signed"]["products"].items():
-            if key == pkg["filename"] and value["sha256"] == pkg["checksum"]:
-              logger.debug("Verified {} with checksum {}".format(key, value["sha256"]))
-            else:
-              logger.debug("Couldn't verify {} with checksum {}, has {}".format(key, value["sha256"], checksum))
-        else:
-          logger.debug("There is no recorded metadata on rebuilder {}".format(rebuilder))
+    return _intoto_verify(message_data)
 
   # All good, we can relay the message
   return True
