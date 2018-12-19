@@ -1,0 +1,77 @@
+{
+ "signatures": [
+  {
+   "keyid": "88876a89e3d4698f83d3db0e72e33ca3e0e04e46",
+   "other_headers": "04000108001d16210488876a89e3d4698f83d3db0e72e33ca3e0e04e4605025c0ecb54",
+   "signature": "03be518019c2f605951770e532510ca219260b6a4548d42a0ff80877ebdc18c7c57c4161a6751be865c003e4d4e3e4a3b8bc60d91c09825415cbf5f6f6ac22d78994cbfaac30caac459b437875a8b716ac114294a05d847ed956525dab1a0c6ea492f10ae89b73dae4259dfa6d6be4e754069fa914d80affba7255d8d466abbde2475e075f177fccdfb5468d731a810a3136338d2db04d58462d28c2e449dd600bfba293f8bf7c00abd32494b0276880a1b57ae9f1586f045981aa3a6d6fcab5e3c4d3e83374db2779110bdde33ec03ac70b703041714691c64516050a6f481d0f3f6f588de129ef8d75a8834b95d4368523b849b5f49993f2e35c838655d3a3"
+  }
+ ],
+ "signed": {
+  "_type": "layout",
+  "expires": "2019-01-06T18:30:57Z",
+  "inspect": [
+   {
+    "_type": "inspection",
+    "expected_materials": [
+     [
+      "MATCH",
+      "*.deb",
+      "WITH",
+      "PRODUCTS",
+      "FROM",
+      "rebuild"
+     ],
+     [
+      "DISALLOW",
+      "*.deb"
+     ]
+    ],
+    "expected_products": [],
+    "name": "verify-reprobuilds",
+    "run": [
+     "/usr/bin/true"
+    ]
+   }
+  ],
+  "keys": {
+   "2e7be98291270e3b7fca429a2210e99cff22017e": {
+    "hashes": [
+     "pgp+SHA2"
+    ],
+    "keyid": "2e7be98291270e3b7fca429a2210e99cff22017e",
+    "keyval": {
+     "private": "",
+     "public": {
+      "e": "010001",
+      "n": "e0da84becb294c355f9d586cb9c14e4e7707db0ccd301d41b4926d34602a35e62f26b5c092c7bb48b8c196e2506c45882b3098788f81663b079eadc61e2a40b7059032c9865059e967d7fa01a816849c646f8d9d5b7f7c0a57920bb05e2aec8e5c7116a09f693d4ed39c13fe7f53191035f4265d1f3b68e37987da5c300aa03b987b86a9d3d7e10e48a67b5631386e10b2d2832a984ddb3706d672c49575c78f8d3d1ce0a195466feb7604a2e04a28b1aa44879c812b180c453cd1d5494e48fde42cc3970d0267a39e41ba4e5e116812e3ade8dcc5e6875cb1df12349f9936d849d6dd3e11ca1067ab70c0dfd0a3770c49d239fa7fdb2a5d47963578deb5c8a6ab1460d986d9bef4ea42b90913b35d7b121bc83ef21f6872ea5bb898fdaa5ccd028a2c7ea5c89c30202b035a7bd5eededca1475a77c565092d8629d1250a9d658373fd9026b2bb72662835fb09bcf73c4256931435f72040e771f3ecaab3b3056ffe699290385211cf276528b5867e868a5df5ec1e5631313b3145de9faed46544653f9073ec55c2da962e6fbc8f9f603348e3d8b55eec078af83b2e6d0d15adacbb4bf212a3e72c806322e84255c85ea3e33d1702942833837afdf71f0068c3bdf9a2b6c3ab3bae309b13466a05ebad14c1cd37c993af0d2a34f42ba10c3630cf2da6a0804186bc2cfd2e4be1995c631527fc61e28bdf7a62e9f3f3f5e5f27f"
+     }
+    },
+    "method": "pgp+rsa-pkcsv1.5",
+    "type": "rsa"
+   }
+  },
+  "readme": "",
+  "steps": [
+   {
+    "_type": "step",
+    "expected_command": [],
+    "expected_materials": [],
+    "expected_products": [
+     [
+      "CREATE",
+      "*.deb"
+     ],
+     [
+      "DISALLOW",
+      "*.deb"
+     ]
+    ],
+    "name": "rebuild",
+    "pubkeys": [
+     "2e7be98291270e3b7fca429a2210e99cff22017e"
+    ],
+    "threshold": 1
+   }
+  ]
+ }
+}
