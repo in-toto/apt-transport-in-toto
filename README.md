@@ -1,4 +1,4 @@
-# apt-transport-in-toto
+# apt-transport-in-toto [![Build Status](https://travis-ci.com/in-toto/apt-transport-in-toto.svg?branch=develop)](https://travis-ci.com/in-toto/apt-transport-in-toto) [![Coverage Status](https://coveralls.io/repos/github/in-toto/apt-transport-in-toto/badge.svg?branch=develop)](https://coveralls.io/github/in-toto/apt-transport-in-toto?branch=develop)
 
 Provide an in-toto transport method for APT to perform in-toto verification
 using in-toto link metadata fetched from a rebuilder. Take a look at
