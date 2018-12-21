@@ -389,7 +389,7 @@ def read_one(stream):
       continue
 
     # Read one byte from the stream
-    one = os.read(stream.fileno(), 1)
+    one = os.read(stream.fileno(), 1).decode()
 
     # Break on EOF
     if not one:
@@ -690,7 +690,7 @@ def loop():
   # subprocesses stdin and vice versa, messages written to the subprocess's
   # stdout are relayed to the parent via sys.stdout.
   http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE)
+      stdout=subprocess.PIPE, universal_newlines=True)
 
   # HTTP transport message reader thread to add messages from the http
   # transport (subprocess) to a corresponding queue.

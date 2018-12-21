@@ -131,7 +131,7 @@ class InTotoTransportTestCase(unittest.TestCase):
 
     # Run intoto.py transport as subprocess with stdin, stdout pipe
     intoto_proc = subprocess.Popen(["python", MEASURE_COVERAGE, INTOTO_EXEC],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True)
 
     # Wait for Capabilities
     _recv(intoto_proc.stdout)
