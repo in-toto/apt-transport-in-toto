@@ -46,6 +46,12 @@ FINAL_PRODUCT_PATH = os.path.join(TEST_DATA_PATH,
 # to find the http transport.
 INTOTO_EXEC = os.path.join(TEST_PATH, "..", "intoto.py")
 
+# The mock apt in this test does not call the intoto transport directly but
+# instead calls a shim that enables test code coverage in a subprocess
+MEASURE_COVERAGE = os.path.join(TEST_PATH, "measure_coverage.py")
+os.environ['COVERAGE_PROCESS_START'] = os.path.join(TEST_PATH, "..",
+    ".coveragerc")
+
 # Path to mock rebuilder server executable
 MOCK_REBUILDER_EXEC = os.path.join(TEST_PATH, "serve_metadata.py")
 
@@ -120,9 +126,8 @@ class InTotoTransportTestCase(unittest.TestCase):
           port, metadata_request, metadata_path], stderr=subprocess.DEVNULL))
 
     # Run intoto.py transport as subprocess with stdin, stdout pipe
-    intoto_proc = subprocess.Popen(["python", INTOTO_EXEC],
+    intoto_proc = subprocess.Popen(["python", MEASURE_COVERAGE, INTOTO_EXEC],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-
 
     # Wait for Capabilities
     _recv(intoto_proc.stdout)
