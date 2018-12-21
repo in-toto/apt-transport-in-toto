@@ -143,11 +143,15 @@ class InTotoTransportTestCase(unittest.TestCase):
     _recv(intoto_proc.stdout)
     # Send EOF and SIGINT
     intoto_proc.stdin.close()
+    intoto_proc.stdout.close()
     intoto_proc.send_signal(signal.SIGINT)
 
     # Stop mock rebuilder servers
     for rebuilder_proc in rebuilder_procs:
       rebuilder_proc.send_signal(signal.SIGINT)
+
+    for proc in [intoto_proc] + rebuilder_procs:
+      proc.wait()
 
 if __name__ == "__main__":
   unittest.main()
