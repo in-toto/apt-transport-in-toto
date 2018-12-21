@@ -297,7 +297,7 @@ def deserialize_one(message_str):
         .format(message_header, message_str))
 
   code = int(message_header_parts.pop(0))
-  if code not in MESSAGE_TYPE.keys():
+  if code not in list(MESSAGE_TYPE.keys()):
     raise Exception("Invalid message header status code: {}, message was:\n{}"
         .format(code, message_str))
 
