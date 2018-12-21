@@ -8,4 +8,5 @@ APT::Intoto {
   Keyids {
     "88876A89E3D4698F83D3DB0E72E33CA3E0E04E46"
   };
+  NoFail {"true"}
 };
