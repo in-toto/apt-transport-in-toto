@@ -9,4 +9,10 @@ APT::Intoto {
   Keyids {
     "88876A89E3D4698F83D3DB0E72E33CA3E0E04E46"
   };
+  // If set to "true" apt installation will continue even if in-toto
+  // verification fails, but only if it fails because of missing link
+  // metadata.
+  // This is meant for a slow rollout, as soon as there is broad support for
+  // rebuilt debian packages, this option should not be used.
+  NoFail {"true"}
 };

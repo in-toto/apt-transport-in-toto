@@ -448,7 +448,8 @@ global_info = {
     "Rebuilders": [],
     "GPGHomedir": "",
     "Layout": "",
-    "Keyids": []
+    "Keyids": [],
+    "NoFail": False
   }
 }
 
@@ -464,7 +465,8 @@ def _intoto_parse_config(message_data):
       ('Config-Item', 'APT::Intoto::GPGHomedir::=/path/to/gpg/keyring'),
       ('Config-Item', 'APT::Intoto::Layout::=/path/to/root.layout'),
       ('Config-Item', 'APT::Intoto::Keyids::=88876A89E3D4698F83D3DB0E72E33CA3E0E04E46'),
-      ('Config-Item', 'APT::Intoto::LogLevel::=10'
+      ('Config-Item', 'APT::Intoto::LogLevel::=10'),
+      ('Config-Item', 'APT::Intoto::NoFail::=true'),
        ...
     ],
   }
@@ -493,6 +495,8 @@ def _intoto_parse_config(message_data):
         except Exception:
           logger.warning("Ignoring unknown LogLevel '{}'".format(config_value))
 
+      elif config_name == "NoFail" and config_value == "true":
+        global_info["config"][config_name] = True
 
       else:
         logger.warning("Skipping unknown config item '{}'".format(field_value))
@@ -634,10 +638,17 @@ def _intoto_verify(message_data):
     error_msg = ("In-toto verification for '{}' failed, reason was: {}"
         .format(filename, str(e)))
     logger.error(error_msg)
-    # Notify apt about the failure ...
-    notify_apt(URI_FAILURE, error_msg, uri)
-    # ... and do not relay http's URI Done (so that apt does not install it)
-    return False
+
+    if (isinstance(e, in_toto.exceptions.LinkNotFoundError) and
+        global_info["config"].get("NoFail")):
+      logger.warning("The 'NoFail' setting was configured,"
+          " installation continues.")
+
+    else:
+      # Notify apt about the failure ...
+      notify_apt(URI_FAILURE, error_msg, uri)
+      # ... and do not relay http's URI Done (so that apt does not install it)
+      return False
 
   else:
     logger.info("In-toto verification for '{}' passed! :)".format(filename))
