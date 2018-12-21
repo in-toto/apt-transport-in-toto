@@ -26,10 +26,14 @@
 import os
 import sys
 import unittest
-import subprocess32 as subprocess
 import signal
 import intoto
 import logging
+
+if sys.version_info[0] == 2:
+  import subprocess32 as subprocess
+else:
+  import subprocess
 
 LOG_LEVEL = logging.INFO
 TEST_PATH = os.path.dirname(os.path.realpath(__file__))

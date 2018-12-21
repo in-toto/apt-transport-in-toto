@@ -23,8 +23,12 @@
 
 """
 import sys
-import SocketServer
-import SimpleHTTPServer
+if sys.version_info[0] == 2:
+  import SocketServer as socketserver
+  import SimpleHTTPServer
+else:
+  import socketserver
+  import http.server as SimpleHTTPServer
 
 PORT = sys.argv[1]
 METADATA_REQUEST = sys.argv[2]
@@ -39,8 +43,8 @@ class CustomHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
       return METADATA_PATH
     return SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path(self, path)
 
-SocketServer.TCPServer.allow_reuse_address = True
-server = SocketServer.TCPServer(("", int(PORT)), CustomHandler)
+socketserver.TCPServer.allow_reuse_address = True
+server = socketserver.TCPServer(("", int(PORT)), CustomHandler)
 try:
   # Serve until KeyboardInterrupt (SIGTERM)
   server.serve_forever()
