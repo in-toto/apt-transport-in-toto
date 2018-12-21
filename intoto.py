@@ -124,7 +124,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # A file handler for debugging purposes
-LOG_FILE = "/tmp/intoto.log"
+# NOTE: bandit security linter flags the use of /tmp because an attacker might
+# hijack that file. This should not be a problem for logging since we don't
+# read from the file nor expose sensitive data, hence we exclude with #nosec
+# TODO: Maybe there is a better location for the log
+LOG_FILE = "/tmp/intoto.log" #nosec
 LOG_HANDLER_FILE = logging.handlers.RotatingFileHandler(LOG_FILE)
 LOG_HANDLER_FILE.setLevel(logging.DEBUG)
 logger.addHandler(LOG_HANDLER_FILE)
