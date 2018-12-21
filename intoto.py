@@ -105,13 +105,18 @@ import sys
 import signal
 import select
 import threading
-import Queue
 import logging
 import logging.handlers
-import subprocess32 as subprocess
 import requests
 import tempfile
 import shutil
+
+if sys.version_info[0] == 2: # pragma: no cover
+  import Queue # pylint: disable=import-error
+  import subprocess32 as subprocess # pylint: disable=import-error
+else: # pragma: no cover
+  import queue as Queue # pylint: disable=import-error
+  import subprocess
 
 import in_toto.util
 import in_toto.verifylib
@@ -292,7 +297,7 @@ def deserialize_one(message_str):
         .format(message_header, message_str))
 
   code = int(message_header_parts.pop(0))
-  if code not in MESSAGE_TYPE.keys():
+  if code not in list(MESSAGE_TYPE.keys()):
     raise Exception("Invalid message header status code: {}, message was:\n{}"
         .format(code, message_str))
 
@@ -384,7 +389,7 @@ def read_one(stream):
       continue
 
     # Read one byte from the stream
-    one = os.read(stream.fileno(), 1)
+    one = os.read(stream.fileno(), 1).decode()
 
     # Break on EOF
     if not one:
@@ -685,7 +690,7 @@ def loop():
   # subprocesses stdin and vice versa, messages written to the subprocess's
   # stdout are relayed to the parent via sys.stdout.
   http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE)
+      stdout=subprocess.PIPE, universal_newlines=True)
 
   # HTTP transport message reader thread to add messages from the http
   # transport (subprocess) to a corresponding queue.

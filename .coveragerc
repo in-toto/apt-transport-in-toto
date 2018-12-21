@@ -1,6 +1,7 @@
 [run]
 # enable branch coverage in addition to statement coverage
 branch = True
+parallel = True
 
 [report]
 exclude_lines =

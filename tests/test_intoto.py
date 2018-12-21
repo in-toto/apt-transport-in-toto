@@ -26,10 +26,14 @@
 import os
 import sys
 import unittest
-import subprocess32 as subprocess
 import signal
 import intoto
 import logging
+
+if sys.version_info[0] == 2:
+  import subprocess32 as subprocess
+else:
+  import subprocess
 
 LOG_LEVEL = logging.INFO
 TEST_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -127,7 +131,7 @@ class InTotoTransportTestCase(unittest.TestCase):
 
     # Run intoto.py transport as subprocess with stdin, stdout pipe
     intoto_proc = subprocess.Popen(["python", MEASURE_COVERAGE, INTOTO_EXEC],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True)
 
     # Wait for Capabilities
     _recv(intoto_proc.stdout)
@@ -139,11 +143,15 @@ class InTotoTransportTestCase(unittest.TestCase):
     _recv(intoto_proc.stdout)
     # Send EOF and SIGINT
     intoto_proc.stdin.close()
+    intoto_proc.stdout.close()
     intoto_proc.send_signal(signal.SIGINT)
 
     # Stop mock rebuilder servers
     for rebuilder_proc in rebuilder_procs:
       rebuilder_proc.send_signal(signal.SIGINT)
+
+    for proc in [intoto_proc] + rebuilder_procs:
+      proc.wait()
 
 if __name__ == "__main__":
   unittest.main()
