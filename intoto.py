@@ -328,7 +328,7 @@ def deserialize_one(message_str):
 
     field_name = header_field_parts.pop(0).strip()
 
-    if field_name not in MESSAGE_TYPE[code]["fields"]:
+    if field_name not in MESSAGE_TYPE[code]["fields"]: # pragma: no cover
       logger.debug("Undefined header field for message code {}: {},"
           .format(code, field_name))
 
@@ -388,7 +388,7 @@ def read_one(stream):
   """
   message_str = ""
   # Read from passed stream until apt sends us a SIGINT or EOF (see below)
-  while not INTERRUPTED:
+  while not INTERRUPTED: # pragma: no branch
     # Only read if there is data on the stream (non-blocking)
     if not select.select([stream], [], [], 0)[0]:
       continue
@@ -629,7 +629,7 @@ def _intoto_verify(message_data):
       logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
       layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
           keyids, gpg_home=gpg_home)
-    else:
+    else: # pragma: no cover
       logger.info("Use default gpg keyring")
       layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
           keyids)
@@ -765,7 +765,7 @@ def loop():
           "Terminating.")
 
       # If apt has sent us a SIGINT we relay it to the subprocess
-      if INTERRUPTED:
+      if INTERRUPTED: # pragma: no branch
         logger.debug("Relay SIGINT to http subprocess")
         http_proc.send_signal(signal.SIGINT)
 
