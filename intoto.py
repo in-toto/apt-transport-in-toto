@@ -296,8 +296,13 @@ def deserialize_one(message_str):
     raise Exception("Invalid message header: {}, message was:\n{}"
         .format(message_header, message_str))
 
-  code = int(message_header_parts.pop(0))
-  if code not in list(MESSAGE_TYPE.keys()):
+  code = None
+  try:
+    code = int(message_header_parts.pop(0))
+  except ValueError:
+    pass
+
+  if not code or code not in list(MESSAGE_TYPE.keys()):
     raise Exception("Invalid message header status code: {}, message was:\n{}"
         .format(code, message_str))
 
@@ -544,7 +549,7 @@ def _intoto_verify(message_data):
       pkg_version_release = pkg_name_parts[1]
 
   if not (pkg_name and pkg_version_release):
-    logger.info("Skipping in-toto verification for '{}'. ".format(filename))
+    logger.info("Skipping in-toto verification for '{}'".format(filename))
     return True
 
   logger.info("Prepare in-toto verification for '{}'".format(filename))
