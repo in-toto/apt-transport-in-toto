@@ -30,34 +30,43 @@ chmod 755 /usr/lib/apt/methods/intoto
 
 ### Configuration
 ---
-**NOTE:** *Once this transport is a Debian package, default configuration may
-be performed upon installation (#11). Also take a look at #13 for a discussion
-about defaults, especially about the layout and layout keys.*
+**NOTE:** *Once this transport is available as Debian package, default
+configuration and installation of required metadata may be performed
+automatically on installation of the package
+(see [#11](https://github.com/in-toto/apt-transport-in-toto/issues/1)).*
 
 ---
 
 #### Layout
 To define the requirement of reproducibility for a package, an in-toto layout
-is used. It specifies what kind of evidence is required to attest for
-reproducibility, and who is authorized to produce that evidence.
-Such a layout must be available on the client, in order for the transport
-to perform verification. The path to the layout must be specified in the
-configuration file as described below. An exemplary such layout can be found in
-[`tests/data/root.layout`](tests/data/root.layout) and may be used for any
-package.
+must be available on the client at verification time and its path must be
+specified in the apt configuration file (see
+[*Options*](https://github.com/in-toto/apt-transport-in-toto#options) below).
+
+A generic rebuild layout can be found in [`data/root.layout`](data/root.layout)
+and may be used to verify any package. It contains public keys to verify the
+authenticity and integrity of rebuilder link metadata and a threshold that
+specifies how many authorized rebuilders need to agree on their result.
+
+---
+**NOTE:** *Update the layout to add or revoke rebuilder authorizations.
+See discussion in [#13](https://github.com/in-toto/apt-transport-in-toto/issues/13)
+for further details.*
+
+---
 
 #### Layout keys
 For a successful verification the layout requires at least one valid signature.
 The signing key(s) are the root of trust and must be available in a gpg keyring
-on the client. The corresponding keyid(s) must be specified in the configuration file as
-described below.
+on the client. The corresponding keyid(s) must be specified in the apt
+configuration file (see
+[*Options*](https://github.com/in-toto/apt-transport-in-toto#options) below).
 
 ---
-**NOTE:** *The example layout above is signed with a test key that is publicly available
-in [`tests/data/gpg_keyring`](tests/data/gpg_keyring) and thus **not
-secret (!!)**. For testing purposes its public part may be imported to the
-client gpg keychain using `gpg --import tests/data/alice.asc`. The corresponding
-keyid is `88876A89E3D4698F83D3DB0E72E33CA3E0E04E46`.*
+**NOTE:** *Downstream maintainers should manually verify the validity of
+[`data/root.layout`](data/root.layout) and sign it with their maintainer key.
+See discussion in [#13](https://github.com/in-toto/apt-transport-in-toto/issues/13)
+for further details.*
 
 ---
 
