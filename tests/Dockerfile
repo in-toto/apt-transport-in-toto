@@ -13,7 +13,7 @@ RUN chmod +x /usr/lib/apt/methods/intoto
 # Copy apt configuration file, root layout and root layout key
 # FIXME: These should be added when installing the intoto transport
 COPY tests/data/intoto.conf.docker /etc/apt/apt.conf.d/intoto
-COPY tests/data/root.layout.docker /etc/intoto/root.layout
+COPY tests/data/test.layout.docker /etc/intoto/root.layout
 COPY tests/data/alice.asc /etc/intoto/alice.asc
 RUN gpg --import /etc/intoto/alice.asc
 

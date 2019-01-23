@@ -67,7 +67,7 @@ _CONFIG_DEFAULTS = {
   "log_level": LOG_LEVEL,
   "rebuilder1": "http://127.0.0.1:8081",
   "rebuilder2": "http://127.0.0.1:8082",
-  "layout_path": os.path.join(TEST_DATA_PATH, "root.layout"),
+  "layout_path": os.path.join(TEST_DATA_PATH, "test.layout"),
   "layout_keyid": "88876A89E3D4698F83D3DB0E72E33CA3E0E04E46",
   "gpg_home": os.path.join(TEST_DATA_PATH, "gpg_keyring"),
   "no_fail": "false"
