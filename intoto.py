@@ -423,6 +423,16 @@ def write_one(message_str, stream):
 
 
 def notify_apt(code, message_text, uri):
+  # Escape LF and CR characters in message bodies to not break the protocol
+  message_text = message_text.replace("\n", "\\n").replace("\r", "\\r")
+  # NOTE: The apt method interface spec references RFC822, which doesn't allow
+  # LF or CR in the message body, except if followed by a LWSP-char (i.e. SPACE
+  # or HTAB, for "folding" of long lines). But apt does not seem to support
+  # folding, and splits lines only at LF. To be safe we escape LF and CR.
+  # See 2.1 Overview in www.fifi.org/doc/libapt-pkg-doc/method.html/ch2.html
+  # See "3.1.1. LONG HEADER FIELDS" and  "3.1.2. STRUCTURE OF HEADER FIELDS" in
+  # www.ietf.org/rfc/rfc822.txt
+
   write_one(serialize_one({
       "code": code,
       "info": MESSAGE_TYPE[code]["info"],
