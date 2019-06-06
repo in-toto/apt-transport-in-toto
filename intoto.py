@@ -127,7 +127,6 @@ import in_toto.models.metadata
 # finetune the actual log levels on handlers
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
 # A file handler for debugging purposes
 # NOTE: bandit security linter flags the use of /tmp because an attacker might
 # hijack that file. This should not be a problem for logging since we don't
@@ -144,6 +143,8 @@ logger.addHandler(LOG_HANDLER_FILE)
 # CONFIGURATION` message which may set the SteamHandler's loglevel
 LOG_HANDLER_STDERR = logging.StreamHandler()
 LOG_HANDLER_STDERR.setLevel(logging.INFO)
+# Make all log messages bold to better distinguish them from apt output
+LOG_HANDLER_STDERR.setFormatter(logging.Formatter("\033[1m%(message)s\033[0m"))
 logger.addHandler(LOG_HANDLER_STDERR)
 
 APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
@@ -559,10 +560,10 @@ def _intoto_verify(message_data):
       pkg_version_release = pkg_name_parts[1]
 
   if not (pkg_name and pkg_version_release):
-    logger.info("Skipping in-toto verification for '{}'".format(filename))
+    logger.info("\nSkipping in-toto verification for '{}'".format(filename))
     return True
 
-  logger.info("Prepare in-toto verification for '{}'".format(filename))
+  logger.info("\nPrepare in-toto verification for '{}'".format(filename))
 
   # Create temp dir
   verification_dir = tempfile.mkdtemp()
@@ -650,7 +651,8 @@ def _intoto_verify(message_data):
     in_toto.verifylib.in_toto_verify(layout, layout_keys)
 
   except Exception as e:
-    error_msg = ("In-toto verification for '{}' failed, reason was: {}"
+    # Colorize (red) error message
+    error_msg = ("\033[31mIn-toto verification for '{}' failed:\033[0m\n{}"
         .format(filename, str(e)))
     logger.error(error_msg)
 
@@ -660,13 +662,17 @@ def _intoto_verify(message_data):
           " installation continues.")
 
     else:
-      # Notify apt about the failure ...
+      # Notify apt about the failure using a short error message
+      error_msg = ("In-toto verification failed with '{}'.".format(
+          type(e).__name__))
       notify_apt(URI_FAILURE, error_msg, uri)
       # ... and do not relay http's URI Done (so that apt does not install it)
       return False
 
   else:
-    logger.info("In-toto verification for '{}' passed! :)".format(filename))
+    # Colorize (blue) success message
+    logger.info("\033[34mIn-toto verification for '{}' passed! :)\033[0m"
+        .format(filename))
 
   finally:
     os.chdir(cached_cwd)
