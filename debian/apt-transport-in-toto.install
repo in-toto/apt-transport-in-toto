@@ -1,0 +1,11 @@
+#!/usr/bin/dh-exec
+
+intoto.py => /usr/lib/apt/methods/intoto
+
+# TODO: Change root key
+data/intoto.conf => /etc/apt/apt.conf.d/intoto
+
+# TODO: Sign layout
+data/root.layout => /etc/intoto/root.layout
+
+# TODO: Copy signing and import into keychain, or use DD key?

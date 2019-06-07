@@ -1,0 +1,37 @@
+Source: apt-transport-in-toto
+Section: devel
+Priority: optional
+Maintainer: in-toto developers <in-toto-dev@googlegroups.com>
+Uploaders:
+ Santiago Torres-Arias <santiago@nyu.edu>,
+ Lukas Puehringer <lukas.puehringer@nyu.edu>,
+ Holger Levsen <holger@debian.org>,
+ Justin Cappos <jcappos@nyu.edu>,
+Build-Depends:
+ debhelper (>= 12~),
+ dh-python,
+ dh-exec,
+ python3-all,
+ python3-setuptools,
+ python3-in-toto (>= 0.3.0),
+Standards-Version: 4.3.0
+Homepage: https://in-toto.io
+Vcs-Git: https://github.com/in-toto/apt-transport-in-toto.git
+Vcs-Browser: https://github.com/in-toto/apt-transport-in-toto
+
+Package: apt-transport-in-toto
+Architecture: all
+Depends:
+  ${misc:Depends},
+  python3,
+  python3-in-toto (>= 0.3.0),
+Description: apt transport method for in-toto supply chain verification
+ apt-transport-in-toto provides a custom transport method for apt that fetches
+ and verifies signed build information from autonomous rebuilders upon package
+ installation.
+ .
+ It uses the supply chain security framework in-toto for its verification
+ protocol, to i.a. define trust relationships and exchange and verify build
+ information.
+ .
+ apt-transport-in-toto is developed at the Secure Systems Lab of NYU.
