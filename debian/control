@@ -8,7 +8,7 @@ Uploaders:
  Holger Levsen <holger@debian.org>,
  Justin Cappos <jcappos@nyu.edu>,
 Build-Depends:
- debhelper (>= 12~),
+ debhelper-compat (= 12),
  dh-python,
  dh-exec,
  python3-all,
