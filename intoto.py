@@ -513,7 +513,7 @@ def _intoto_parse_config(message_data):
     if field_name == "Config-Item" and field_value.startswith("APT::Intoto"):
       # Dissect config item
       logger.debug(field_value)
-      junk, junk, config_name, config_value = field_value.split("::")
+      _, _, config_name, config_value = field_value.split("::")
       # Strip leading "=", courtesy of apt config
       config_value = config_value.lstrip("=")
 
