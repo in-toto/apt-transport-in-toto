@@ -1,3 +1,2 @@
 in-toto
-subprocess32; python_version < '3'
 requests
