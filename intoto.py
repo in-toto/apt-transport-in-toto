@@ -114,6 +114,7 @@ import queue as Queue # pylint: disable=import-error
 import subprocess
 import securesystemslib.gpg.functions
 
+import in_toto.exceptions
 import in_toto.verifylib
 import in_toto.models.link
 import in_toto.models.metadata
