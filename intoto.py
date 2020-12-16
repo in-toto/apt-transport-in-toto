@@ -111,12 +111,8 @@ import requests
 import tempfile
 import shutil
 
-if sys.version_info[0] == 2: # pragma: no cover
-  import Queue # pylint: disable=import-error
-  import subprocess32 as subprocess # pylint: disable=import-error
-else: # pragma: no cover
-  import queue as Queue # pylint: disable=import-error
-  import subprocess
+import queue as Queue # pylint: disable=import-error
+import subprocess
 
 import in_toto.util
 import in_toto.verifylib
