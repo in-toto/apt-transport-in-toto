@@ -110,11 +110,10 @@ import logging.handlers
 import requests
 import tempfile
 import shutil
-
 import queue as Queue # pylint: disable=import-error
 import subprocess
+import securesystemslib.gpg.functions
 
-import in_toto.util
 import in_toto.verifylib
 import in_toto.models.link
 import in_toto.models.metadata
@@ -654,13 +653,12 @@ def _intoto_verify(message_data):
     logger.info("Load in-toto layout key(s) '{}' (apt config)".format(
         global_info["config"]["Keyids"]))
     if gpg_home:
-      logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids, gpg_home=gpg_home)
-    else: # pragma: no cover
-      logger.info("Use default gpg keyring")
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids)
+        logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
+        layout_keys = securesystemslib.gpg.functions.export_pubkeys(
+            keyids, homedir=gpg_home)
+    else:  # pragma: no cover
+        logger.info("Use default gpg keyring")
+        layout_keys = securesystemslib.gpg.functions.export_pubkeys(keyids)
 
     logger.info("Run in-toto verification")
 
