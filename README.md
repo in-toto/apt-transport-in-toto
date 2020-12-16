@@ -23,7 +23,7 @@ git clone https://github.com/in-toto/apt-transport-in-toto.git
 # Install requirements
 pip install -r apt-transport-in-toto/requirements.txt
 # Install transport
-ln -s /usr/lib/apt/methods/intoto apt-transport-in-toto/intoto.py
+ln -s apt-transport-in-toto/intoto.py /usr/lib/apt/methods/intoto
 chmod 755 /usr/lib/apt/methods/intoto
 ```
 
