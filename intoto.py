@@ -654,12 +654,12 @@ def _intoto_verify(message_data):
     logger.info("Load in-toto layout key(s) '{}' (apt config)".format(
         global_info["config"]["Keyids"]))
     if gpg_home:
-        logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
-        layout_keys = securesystemslib.gpg.functions.export_pubkeys(
-            keyids, homedir=gpg_home)
+      logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(
+        keyids, homedir=gpg_home)
     else:  # pragma: no cover
-        logger.info("Use default gpg keyring")
-        layout_keys = securesystemslib.gpg.functions.export_pubkeys(keyids)
+      logger.info("Use default gpg keyring")
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(keyids)
 
     logger.info("Run in-toto verification")
 
