@@ -732,7 +732,7 @@ def loop():
   # Messages from the parent process received on sys.stdin are relayed to the
   # subprocess' stdin and vice versa, messages written to the subprocess'
   # stdout are relayed to the parent via sys.stdout.
-  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE,
+  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE, # nosec
       stdout=subprocess.PIPE, universal_newlines=True)
 
   # HTTP transport message reader thread to add messages from the http
