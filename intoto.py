@@ -110,15 +110,11 @@ import logging.handlers
 import requests
 import tempfile
 import shutil
+import queue as Queue # pylint: disable=import-error
+import subprocess
+import securesystemslib.gpg.functions
 
-if sys.version_info[0] == 2: # pragma: no cover
-  import Queue # pylint: disable=import-error
-  import subprocess32 as subprocess # pylint: disable=import-error
-else: # pragma: no cover
-  import queue as Queue # pylint: disable=import-error
-  import subprocess
-
-import in_toto.util
+import in_toto.exceptions
 import in_toto.verifylib
 import in_toto.models.link
 import in_toto.models.metadata
@@ -659,12 +655,11 @@ def _intoto_verify(message_data):
         global_info["config"]["Keyids"]))
     if gpg_home:
       logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids, gpg_home=gpg_home)
-    else: # pragma: no cover
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(
+        keyids, homedir=gpg_home)
+    else:  # pragma: no cover
       logger.info("Use default gpg keyring")
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids)
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(keyids)
 
     logger.info("Run in-toto verification")
 
@@ -737,7 +732,7 @@ def loop():
   # Messages from the parent process received on sys.stdin are relayed to the
   # subprocess' stdin and vice versa, messages written to the subprocess'
   # stdout are relayed to the parent via sys.stdout.
-  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE,
+  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE, # nosec
       stdout=subprocess.PIPE, universal_newlines=True)
 
   # HTTP transport message reader thread to add messages from the http
