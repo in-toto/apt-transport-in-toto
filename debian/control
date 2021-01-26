@@ -8,6 +8,7 @@ Uploaders:
  Holger Levsen <holger@debian.org>,
  Vagrant Cascadian <vagrant@debian.org>,
  Justin Cappos <jcappos@nyu.edu>,
+ Frédéric Pierret <frederic.pierret@qubes-os.org>,
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
