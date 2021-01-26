@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 """
 <Program Name>
   intoto.py
@@ -110,15 +110,11 @@ import logging.handlers
 import requests
 import tempfile
 import shutil
+import queue as Queue # pylint: disable=import-error
+import subprocess
+import securesystemslib.gpg.functions
 
-if sys.version_info[0] == 2: # pragma: no cover
-  import Queue # pylint: disable=import-error
-  import subprocess32 as subprocess # pylint: disable=import-error
-else: # pragma: no cover
-  import queue as Queue # pylint: disable=import-error
-  import subprocess
-
-import in_toto.util
+import in_toto.exceptions
 import in_toto.verifylib
 import in_toto.models.link
 import in_toto.models.metadata
@@ -152,11 +148,17 @@ APT_METHOD_HTTP = os.path.join(os.path.dirname(sys.argv[0]), "http")
 # Upon reception we set INTERRUPTED to true, which may be used to gracefully
 # terminate.
 INTERRUPTED = False
+# TODO: Maybe we can replace the signal handler with a KeyboardInterrupt
+# try/except block in the main loop, for better readability.
 def signal_handler(*junk):
   # Set global INTERRUPTED flag telling worker threads to terminate
   logger.debug("Received SIGINT, setting global INTERRUPTED true")
   global INTERRUPTED
   INTERRUPTED = True
+
+# Global BROKENPIPE flag should be set to true, if a `write` or `flush` on a
+# stream raises a BrokenPipeError, to gracefully terminate reader threads.
+BROKENPIPE = False
 
 # APT Method Interface Message definition
 # The first line of each message is called the message header. The first 3
@@ -387,8 +389,11 @@ def read_one(stream):
 
   """
   message_str = ""
-  # Read from passed stream until apt sends us a SIGINT or EOF (see below)
-  while not INTERRUPTED: # pragma: no branch
+  # Read from stream until we get a SIGINT/BROKENPIPE, or reach EOF (see below)
+  # TODO: Do we need exception handling for the case where we select/read from
+  # a stream that was closed? If so, we should do it in the main loop for
+  # better readability.
+  while not (INTERRUPTED or BROKENPIPE): # pragma: no branch
     # Only read if there is data on the stream (non-blocking)
     if not select.select([stream], [], [], 0)[0]:
       continue
@@ -418,8 +423,21 @@ def write_one(message_str, stream):
   """Write the passed message to the passed stream.
 
   """
-  stream.write(message_str)
-  stream.flush()
+  try:
+    stream.write(message_str)
+    stream.flush()
+
+  except BrokenPipeError:
+    # TODO: Move exception handling to main loop for better readability
+    global BROKENPIPE
+    BROKENPIPE = True
+    logger.debug("BrokenPipeError while writing '{}' to '{}'.".format(
+        message_str, stream))
+    # Python flushes standard streams on exit; redirect remaining output
+    # to devnull to avoid another BrokenPipeError at shutdown
+    # See https://docs.python.org/3/library/signal.html#note-on-sigpipe
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, sys.stdout.fileno())
 
 
 def notify_apt(code, message_text, uri):
@@ -491,7 +509,7 @@ def _intoto_parse_config(message_data):
     if field_name == "Config-Item" and field_value.startswith("APT::Intoto"):
       # Dissect config item
       logger.debug(field_value)
-      junk, junk, config_name, config_value = field_value.split("::")
+      _, _, config_name, config_value = field_value.split("::")
       # Strip leading "=", courtesy of apt config
       config_value = config_value.lstrip("=")
 
@@ -637,12 +655,11 @@ def _intoto_verify(message_data):
         global_info["config"]["Keyids"]))
     if gpg_home:
       logger.info("Use gpg keyring '{}' (apt config)".format(gpg_home))
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids, gpg_home=gpg_home)
-    else: # pragma: no cover
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(
+        keyids, homedir=gpg_home)
+    else:  # pragma: no cover
       logger.info("Use default gpg keyring")
-      layout_keys = in_toto.util.import_gpg_public_keys_from_keyring_as_dict(
-          keyids)
+      layout_keys = securesystemslib.gpg.functions.export_pubkeys(keyids)
 
     logger.info("Run in-toto verification")
 
@@ -713,9 +730,9 @@ def loop():
   """
   # Start http transport in a subprocess
   # Messages from the parent process received on sys.stdin are relayed to the
-  # subprocesses stdin and vice versa, messages written to the subprocess's
+  # subprocess' stdin and vice versa, messages written to the subprocess'
   # stdout are relayed to the parent via sys.stdout.
-  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE,
+  http_proc = subprocess.Popen([APT_METHOD_HTTP], stdin=subprocess.PIPE, # nosec
       stdout=subprocess.PIPE, universal_newlines=True)
 
   # HTTP transport message reader thread to add messages from the http
@@ -730,8 +747,9 @@ def loop():
   apt_thread = threading.Thread(target=read_to_queue, args=(sys.stdin,
       apt_queue))
 
-  # Start reader threads. They will run until they see an EOF on their stream
-  # or the global INTERRUPTED flag is set to true (on SIGINT from apt).
+  # Start reader threads.
+  # They will run until they see an EOF on their stream, or the global
+  # INTERRUPTED or BROKENPIPE flags are set to true.
   http_thread.start()
   apt_thread.start()
 
@@ -766,7 +784,7 @@ def loop():
         logger.debug("Relay message")
         write_one(message, out)
 
-    # Exit when both threads have terminated (on EOF or INTERRUPTED)
+    # Exit when both threads have terminated (EOF, INTERRUPTED or BROKENPIPE)
     # NOTE: We do not check if there are still messages on the streams or
     # in the queue, assuming that there aren't or we can ignore them if both
     # threads have terminated.
@@ -774,8 +792,12 @@ def loop():
       logger.debug("The worker threads are dead. Long live the worker threads!"
           "Terminating.")
 
-      # If apt has sent us a SIGINT we relay it to the subprocess
-      if INTERRUPTED: # pragma: no branch
+      # If INTERRUPTED or BROKENPIPE are true it (likely?) means that apt
+      # sent a SIGINT or closed the pipe we were writing to. This means we
+      # should exit and tell the http child process to exit too.
+      # TODO: Could it be that the http child closed a pipe or sent a SITERM?
+      # TODO: Should we behave differently for the two signals?
+      if INTERRUPTED or BROKENPIPE: # pragma: no branch
         logger.debug("Relay SIGINT to http subprocess")
         http_proc.send_signal(signal.SIGINT)
 

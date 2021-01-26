@@ -1,0 +1,5 @@
+apt-transport-in-toto (0.1.0) unstable; urgency=low
+
+  *  Initial Debian release. (Closes: #934143)
+
+ -- Lukas Puehringer <lukas.puehringer@nyu.edu>  Thu, 19 Dec 2019 13:37:12 -0100

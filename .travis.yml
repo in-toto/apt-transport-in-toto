@@ -1,4 +1,4 @@
-dist: xenial
+dist: bionic
 language: python
 
 matrix:
@@ -7,15 +7,8 @@ matrix:
         # tox environment, instead of using one Python version in Travis and
         # hoping that tox and pyenv run the tests in the desired versions.
         # https://github.com/travis-ci/travis-ci/issues/8363#issuecomment-355090242
-        - python: "2.7"
-          env: TOXENV=py27
-        - python: "3.5"
-          env: TOXENV=py35
-        - python: "3.6"
-          env: TOXENV=py36
-        - python: "3.7"
-          env: TOXENV=py37
-
+        - python: "3.9"
+          env: TOXENV=py39
 install:
     - pip install -U tox
     - pip install -U coveralls

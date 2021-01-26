@@ -3,11 +3,13 @@
 branch = True
 parallel = True
 
+omit =
+  */tests/*
+  */python?/*
+  */python?.?/*
+  */site-packages/*
+  */dist-packages/*
+
 [report]
 exclude_lines =
   pragma: no cover
-
-omit =
-  */tests/*
-  */python?.?/*
-  */site-packages/*

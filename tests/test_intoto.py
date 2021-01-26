@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 """
 <Program Name>
   test_intoto.py
@@ -171,7 +171,7 @@ class InTotoTransportTestCase(unittest.TestCase):
     for port, metadata_file in [
         ("8081", "rebuild.5863835e.link"), ("8082", "rebuild.e946fc60.link")]:
       metadata_path = os.path.join(TEST_DATA_PATH, metadata_file)
-      self.rebuilder_procs.append(subprocess.Popen(["python",
+      self.rebuilder_procs.append(subprocess.Popen(["python3",
           MOCK_REBUILDER_EXEC, port, self.metadata_request, metadata_path],
           stderr=subprocess.DEVNULL))
 
@@ -188,7 +188,7 @@ class InTotoTransportTestCase(unittest.TestCase):
   def setUp(self):
     """Start intoto transport anew for each test. """
     self.intoto_proc = subprocess.Popen(
-        ["python", MEASURE_COVERAGE, INTOTO_EXEC],
+        ["python3", MEASURE_COVERAGE, INTOTO_EXEC],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         # stderr=subprocess.DEVNULL, # NOTE: Unomment for less verbose test log
         universal_newlines=True)
@@ -247,7 +247,7 @@ class InTotoTransportTestCase(unittest.TestCase):
     self.assertFalse(
         os.path.exists(os.path.abspath(self.metadata_request.lstrip("/"))))
     rebuilder_proc = subprocess.Popen(
-        ["python", MOCK_REBUILDER_EXEC, "8083", "/", "/"],
+        ["python3", MOCK_REBUILDER_EXEC, "8083", "/", "/"],
         stderr=subprocess.DEVNULL)
 
     result = mock_apt(self.intoto_proc,
