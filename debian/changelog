@@ -1,4 +1,14 @@
-apt-transport-in-toto (0.1.0) unstable; urgency=low
+apt-transport-in-toto (0.1.1-1) unstable; urgency=low
+
+  * debian/control:
+    - Add Frédéric Pierret to Uploaders field
+    - Remove Vagrant Cascadian from Uploaders field
+    - Bump requirement in-toto (>= 1.0.0)
+    - Use quilt format
+
+ -- Frédéric Pierret <frederic.pierret@qubes-os.org>  Tue, 26 Jan 2021 14:40:00 +0100
+
+apt-transport-in-toto (0.1.0-1) unstable; urgency=low
 
   *  Initial Debian release. (Closes: #934143)
 
