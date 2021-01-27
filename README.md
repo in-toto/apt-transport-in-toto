@@ -33,7 +33,7 @@ chmod 755 /usr/lib/apt/methods/intoto
 **NOTE:** *Once this transport is available as Debian package, default
 configuration and installation of required metadata may be performed
 automatically on installation of the package
-(see [#11](https://github.com/in-toto/apt-transport-in-toto/issues/1)).*
+(see [#11](https://github.com/in-toto/apt-transport-in-toto/issues/11)).*
 
 ---
 
