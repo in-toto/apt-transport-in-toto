@@ -5,6 +5,10 @@ apt-transport-in-toto (0.1.1-1) unstable; urgency=low
     - Remove Vagrant Cascadian from Uploaders field
     - Bump requirement in-toto (>= 1.0.0)
     - Use quilt format
+    - Indicate "debian" branch in Vcs-Git field
+  * Add GitHub-tailored debian/watch
+  * Add debian/upstream/metadata file
+  * Add debian/upstream/signing-key.asc file  (89A2AD3C07D962E8)
 
  -- Frédéric Pierret <frederic.pierret@qubes-os.org>  Tue, 26 Jan 2021 14:40:00 +0100
 
