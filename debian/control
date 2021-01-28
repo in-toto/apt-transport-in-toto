@@ -8,6 +8,7 @@ Uploaders:
  Holger Levsen <holger@debian.org>,
  Vagrant Cascadian <vagrant@debian.org>,
  Justin Cappos <jcappos@nyu.edu>,
+ Frédéric Pierret <frederic.pierret@qubes-os.org>,
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
@@ -16,12 +17,12 @@ Build-Depends:
  python3-requests,
  python3-mock,
  python3-coverage,
- in-toto (>= 0.3.0),
+ in-toto (>= 1.0.0),
  gnupg2,
 Standards-Version: 4.5.1
 Rules-Requires-Root: no
 Homepage: https://in-toto.io
-Vcs-Git: https://github.com/in-toto/apt-transport-in-toto.git
+Vcs-Git: https://github.com/in-toto/apt-transport-in-toto.git -b debian
 Vcs-Browser: https://github.com/in-toto/apt-transport-in-toto
 
 Package: apt-transport-in-toto
@@ -31,7 +32,7 @@ Depends:
   python3,
   python3-requests,
   python3-securesystemslib,
-  in-toto (>= 0.3.0),
+  in-toto (>= 1.0.0),
   gnupg2,
 Description: apt transport method for in-toto supply chain verification
  apt-transport-in-toto provides a custom transport method for apt that fetches

@@ -1,5 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: apt-transport-in-toto
+Upstream-Contact: in-toto developers <in-toto-dev@googlegroups.com>
 Source: https://github.com/in-toto/apt-transport-in-toto
 
 Files: *
