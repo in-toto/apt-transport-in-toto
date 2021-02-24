@@ -1,0 +1,38 @@
+FROM debian:sid-slim
+
+# Install Python required for in-toto and some tools handy for demoing
+RUN apt-get update \
+    && apt-get install -y python-pip vim wget gpg iputils-ping apt-utils
+
+# Add custom archive release key to apt keyring (see Dockerfile-mirror)
+COPY demo/alice.asc /tmp/release.key
+RUN apt-key add /tmp/release.key
+
+# Add bash niceness for demoing, i.e. colored ls, json synax highlighting for
+# in-toto/rebuilder metadata in vim, custom demo prompt
+RUN echo 'alias ls="ls --color=auto"' >> ~/.bashrc
+RUN echo 'PS1="demo:\w # "' >> ~/.bashrc
+RUN echo 'colo delek' >> ~/.vimrc
+RUN echo 'syntax on' >> ~/.vimrc
+RUN echo 'autocmd BufRead,BufNewFile *.layout set filetype=json' >> ~/.vimrc
+RUN echo 'autocmd BufRead,BufNewFile metadata* set filetype=json' >> ~/.vimrc
+
+
+# NOTE: Below setup will be replaced by `apt-get install apt-transport-intoto`
+# (see in-toto/apt-transport-in-toto#11)
+
+# Install in-toto and and intoto transport
+RUN pip install in-toto requests subprocess32
+COPY intoto.py /usr/lib/apt/methods/intoto
+RUN chmod +x /usr/lib/apt/methods/intoto
+
+# Manually copy apt config file, root layout and root layout key
+COPY demo/intoto.conf /etc/apt/apt.conf.d/intoto
+COPY demo/root.layout /etc/intoto/root.layout
+COPY demo/alice.asc /etc/intoto/root.asc
+
+# Import root layout key to default keychain
+RUN gpg --import /etc/intoto/root.asc
+
+# Patch sources.list to retrieve packages from mock mirror
+RUN echo deb http://mirror.ok/debian/ unstable main > /etc/apt/sources.list

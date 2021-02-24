@@ -1,0 +1,43 @@
+version: "3.7"
+services:
+  mirror.ok:
+    build:
+      context: .
+      dockerfile: Dockerfile-mirror
+      args:
+        name: mirror.ok
+    expose:
+      - "80"
+
+  mirror.bad:
+    build:
+      context: .
+      dockerfile: Dockerfile-mirror
+      args:
+        name: mirror.bad
+    expose:
+      - "80"
+
+  rebuilder.a:
+    build:
+      context: .
+      dockerfile: Dockerfile-rebuilder
+      args:
+        keyid: 5863835e
+    expose:
+      - "80"
+
+  rebuilder.b:
+    build:
+      context: .
+      dockerfile: Dockerfile-rebuilder
+      args:
+        keyid: e946fc60
+    expose:
+      - "80"
+
+  client:
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile-client
+    tty: true

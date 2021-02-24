@@ -1,0 +1,12 @@
+Source: demo-package
+Section: misc
+Priority: extra
+Maintainer: Lukas P <lukas.puehringer@nyu.edu>
+Build-Depends: debhelper
+Standards-Version: 4.0.0
+Homepage: in-toto.io
+
+Package: demo-package
+Architecture: all
+Depends: ${misc:Depends}
+Description: A package for in-toto apt transport demo

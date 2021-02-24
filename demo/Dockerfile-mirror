@@ -1,0 +1,22 @@
+FROM debian:sid-slim
+
+# The passed mirror name is used to decide which package to serve
+# (see service definition in docker-compose.yml)
+ARG name
+
+RUN apt-get update && apt-get install -y nginx apt-utils gpg
+
+# Copy deb package to be served for the passed name
+COPY demo-package_1.0.0_all.deb.${name} \
+    /var/www/html/debian/pool/main/demo-package_1.0.0_all.deb
+
+# Copy gpg keyring used to sign the release (see archive.sh)
+COPY keyring /tmp/keyring
+
+# Copy and run archive creation script
+COPY archive.sh /tmp/archive.sh
+RUN chmod +x /tmp/archive.sh
+RUN /tmp/archive.sh
+
+# Start nginx server to serve archive
+CMD ["nginx", "-g", "daemon off;"]
