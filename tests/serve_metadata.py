@@ -23,30 +23,29 @@
 
 """
 import sys
-if sys.version_info[0] == 2:
-  import SocketServer as socketserver
-  import SimpleHTTPServer
-else:
-  import socketserver
-  import http.server as SimpleHTTPServer
+import socketserver
+import http.server as SimpleHTTPServer
 
 PORT = sys.argv[1]
 METADATA_REQUEST = sys.argv[2]
 METADATA_PATH = sys.argv[3]
 
+
 class CustomHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
-  def translate_path(self, path):
-    """Intercept file requests to path in METADATA_REQUEST and serve file from
-    METADATA_PATH.
-    """
-    if path == METADATA_REQUEST:
-      return METADATA_PATH
-    return SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path(self, path)
+    def translate_path(self, path):
+        """Intercept file requests to path in METADATA_REQUEST and serve file
+         from METADATA_PATH.
+        """
+        if path == METADATA_REQUEST:
+            return METADATA_PATH
+        return SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path(
+            self, path)
+
 
 socketserver.TCPServer.allow_reuse_address = True
 server = socketserver.TCPServer(("", int(PORT)), CustomHandler)
 try:
-  # Serve until KeyboardInterrupt (SIGTERM)
-  server.serve_forever()
+    # Serve until KeyboardInterrupt (SIGTERM)
+    server.serve_forever()
 except KeyboardInterrupt:
-  server.server_close()
+    server.server_close()

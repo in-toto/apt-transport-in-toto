@@ -40,5 +40,5 @@ sys.argv = [exectuable]
 
 # Execute executable in this process measuring code coverage
 with open(exectuable) as f:
-  code = compile(f.read(), exectuable, "exec")
-  exec(code)
+    code = compile(f.read(), exectuable, "exec")
+    exec(code)
