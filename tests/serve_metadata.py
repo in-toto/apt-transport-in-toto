@@ -23,13 +23,8 @@
 
 """
 import sys
-
-if sys.version_info[0] == 2:
-    import SocketServer as socketserver
-    import SimpleHTTPServer
-else:
-    import socketserver
-    import http.server as SimpleHTTPServer
+import socketserver
+import http.server as SimpleHTTPServer
 
 PORT = sys.argv[1]
 METADATA_REQUEST = sys.argv[2]
