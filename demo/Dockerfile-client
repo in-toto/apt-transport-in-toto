@@ -1,8 +1,8 @@
-FROM debian:sid-slim
+FROM debian:unstable-slim
 
 # Install Python required for in-toto and some tools handy for demoing
 RUN apt-get update \
-    && apt-get install -y python-pip vim wget gpg iputils-ping apt-utils
+    && apt-get install -y python3-pip vim wget gpg iputils-ping apt-utils apt-transport-in-toto
 
 # Add custom archive release key to apt keyring (see Dockerfile-mirror)
 COPY demo/alice.asc /tmp/release.key
@@ -20,11 +20,6 @@ RUN echo 'autocmd BufRead,BufNewFile metadata* set filetype=json' >> ~/.vimrc
 
 # NOTE: Below setup will be replaced by `apt-get install apt-transport-intoto`
 # (see in-toto/apt-transport-in-toto#11)
-
-# Install in-toto and and intoto transport
-RUN pip install in-toto requests subprocess32
-COPY intoto.py /usr/lib/apt/methods/intoto
-RUN chmod +x /usr/lib/apt/methods/intoto
 
 # Manually copy apt config file, root layout and root layout key
 COPY demo/intoto.conf /etc/apt/apt.conf.d/intoto
