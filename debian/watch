@@ -1,3 +1,6 @@
 version=4
-opts=pgpsigurlmangle=s/archive\/v?(\d\S+)\.tar\.gz/releases\/download\/v$1\/v$1\.tar\.gz\.asc/ \
-  https://github.com/in-toto/apt-transport-in-toto/releases/latest .*/v?(\d\S+)\.tar\.gz
+opts="searchmode=plain,\
+pgpsigurlmangle=s~api.github.com/repos/([^/]+)/([^/]+)/tarball/v(@ANY_VERSION@)~github.com/$1/$2/releases/download/v$3/v$3.tar.gz.asc~,\
+filenamemangle=s%v?@ANY_VERSION@%@PACKAGE@-$1.tar.xz%" \
+https://api.github.com/repos/in-toto/apt-transport-in-toto/releases?per_page=50 \
+https://api.github.com/repos/[^/]+/[^/]+/tarball/v?@ANY_VERSION@

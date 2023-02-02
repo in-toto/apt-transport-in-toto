@@ -19,7 +19,7 @@ Build-Depends:
  python3-coverage,
  in-toto (>= 1.0.0),
  gnupg2,
-Standards-Version: 4.5.1
+Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://in-toto.io
 Vcs-Git: https://github.com/in-toto/apt-transport-in-toto.git -b debian
