@@ -1,3 +1,10 @@
+apt-transport-in-toto (0.1.1-3) unstable; urgency=medium
+
+  * Bump standards version
+  * Fix debian/watch
+
+ -- Lukas Puehringer <lukas.puehringer@nyu.edu>  Thu, 02 Feb 2023 09:36:09 +0100
+
 apt-transport-in-toto (0.1.1-2) unstable; urgency=medium
 
   * Source upload for testing migration.
