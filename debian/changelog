@@ -1,3 +1,10 @@
+apt-transport-in-toto (0.1.1-4) unstable; urgency=medium
+
+  * d/control: Change gnupg2 to gnupg (Closes: #1055397)
+  * d/Dockerfile: Adds Dockerfile used to build this release on macOS
+
+ -- Lukas Puehringer <lukas.puehringer@nyu.edu>  Wed, 08 Feb 2023 17:41:00 +0100
+
 apt-transport-in-toto (0.1.1-3) unstable; urgency=medium
 
   * Bump standards version

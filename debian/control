@@ -18,7 +18,7 @@ Build-Depends:
  python3-mock,
  python3-coverage,
  in-toto (>= 1.0.0),
- gnupg2,
+ gnupg,
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://in-toto.io
@@ -33,7 +33,7 @@ Depends:
   python3-requests,
   python3-securesystemslib,
   in-toto (>= 1.0.0),
-  gnupg2,
+  gnupg,
 Description: apt transport method for in-toto supply chain verification
  apt-transport-in-toto provides a custom transport method for apt that fetches
  and verifies signed build information from autonomous rebuilders upon package
