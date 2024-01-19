@@ -1,0 +1,3 @@
+FROM nginx
+ARG keyid
+COPY rebuild.${keyid}.link /usr/share/nginx/html/sources/demo-package/1.0.0/metadata
